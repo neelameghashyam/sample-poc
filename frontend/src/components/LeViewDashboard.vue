@@ -517,7 +517,7 @@ function backToDashboard() {
 .lvd-root button { font-family: 'Figtree', 'Segoe UI', Arial, sans-serif; cursor: pointer; }
 
 .lvd-root {
-  font-family: 'Figtree', 'Segoe UI', Arial, sans-serif;
+  font-family: 'Figtree',sans-serif;
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -627,7 +627,6 @@ function backToDashboard() {
 }
 .lvd-botanical-row { display: flex; flex-direction: column; gap: 6px; }
 .lvd-botanical-text {
-  font-style: italic;
   font-weight: 700;
   font-size: 15px;
   line-height: 20px;
