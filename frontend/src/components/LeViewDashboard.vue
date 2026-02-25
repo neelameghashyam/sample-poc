@@ -881,7 +881,7 @@ function backToDashboard() {
 .lvd-mat-radios { display: flex; flex-direction: column; gap: 12px; }
 .lvd-mat-radio-row { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; user-select: none; }
 
-/* FIX 1: identical pattern to lvd-radio-circle — 18px, 2px border, ::after dot */
+/* identical pattern to lvd-radio-circle — 18px, 2px border, ::after dot */
 .lvd-mat-radio-circle {
   width: 18px;
   height: 18px;
@@ -903,9 +903,17 @@ function backToDashboard() {
   background: transparent;
   transition: background 0.15s;
 }
-.lvd-mat-radio-circle.lvd-mat-radio-circle--on::after { background: #1C4240; }
+.lvd-mat-radio-circle {
+  border: 2px solid #1C4240; /* default border stays dark */
+}
 
-.lvd-mat-radio-text { font-size: 15px; font-weight: 400; color: #303030; line-height: 22px; }
+.lvd-mat-radio-circle.lvd-mat-radio-circle--on {
+  border-color: #009A6E;
+}
+
+.lvd-mat-radio-circle.lvd-mat-radio-circle--on::after { 
+  background: #009A6E; 
+}.lvd-mat-radio-text { font-size: 15px; font-weight: 400; color: #303030; line-height: 22px; }
 
 /* FIX 3: preview box matches title chapter style exactly */
 .lvd-mat-preview { background: rgba(184, 180, 164, 0.14); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
