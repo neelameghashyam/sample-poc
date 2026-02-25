@@ -879,12 +879,12 @@ function backToDashboard() {
 .lvd-mat-empty { font-size: 14px; color: #727272; }
 .lvd-mat-instruction { font-size: 15px; font-weight: 400; color: #303030; line-height: 19px; }
 .lvd-mat-radios { display: flex; flex-direction: column; gap: 12px; }
-.lvd-mat-radio-row { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; user-select: none; }
+.lvd-mat-radio-row { display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
 
 /* identical pattern to lvd-radio-circle — 18px, 2px border, ::after dot */
 .lvd-mat-radio-circle {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 2px solid #1C4240;
   background: #FFFFFF;
@@ -892,7 +892,7 @@ function backToDashboard() {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 0px;
   transition: border-color 0.15s;
 }
 .lvd-mat-radio-circle::after {
@@ -913,9 +913,8 @@ function backToDashboard() {
 
 .lvd-mat-radio-circle.lvd-mat-radio-circle--on::after { 
   background: #009A6E; 
-}.lvd-mat-radio-text { font-size: 15px; font-weight: 400; color: #303030; line-height: 22px; }
+}.lvd-mat-radio-text { font-size: 16px; font-weight: 400; color: #303030; line-height: 1px; }
 
-/* FIX 3: preview box matches title chapter style exactly */
 .lvd-mat-preview { background: rgba(184, 180, 164, 0.14); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .lvd-mat-preview-hd { display: flex; align-items: center; gap: 5px; }
 .lvd-mat-preview-tag { font-size: 12px; font-weight: 600; color: #AD4E02; letter-spacing: 0.5px; }
