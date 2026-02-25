@@ -61,6 +61,19 @@ const radioAnswers         = ref<Record<string, 'yes' | 'no' | null>>({
 });
 const navigationLocked     = false;
 
+// ─── Material accordion state (ADDED) ─────────────────────────────────────────
+const materialSections = ref([
+  { id: 'mat-2-1', number: '2.1', title: 'Title text',                isOpen: false },
+  { id: 'mat-2-2', number: '2.2', title: 'Title text',                isOpen: false },
+  { id: 'mat-2-3', number: '2.3', title: 'Seed Quality Requirements', isOpen: true  },
+]);
+const seedQualityRadio = ref<'seed-only' | 'both' | null>(null);
+
+function toggleMaterialSection(id: string) {
+  const s = materialSections.value.find(x => x.id === id);
+  if (s) s.isOpen = !s.isOpen;
+}
+
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const chapters: ChapterItem[] = [
   { number: '01', title: 'Title',                    status: 'current' },
@@ -394,87 +407,182 @@ function backToDashboard() {
           {{ activeChapter.number }}. {{ activeChapter.title }}
         </h1>
 
-        <div class="lvd-section-card">
-          <div class="lvd-block">
+        <!-- ── ADDED: Material accordion shown when chapter index === 1 (02 Material) ── -->
+        <template v-if="activeChapterIndex === 1">
+          <div class="lvd-mat-accordion">
 
-            <h2 class="lvd-block-title">1.1 Standard items are configured by default</h2>
-
-            <!-- Section related links -->
-            <div class="lvd-section-links">
-              <span class="lvd-links-label">Related links:</span>
-              <div class="lvd-section-links-items">
-                <a
-                  v-for="(lnk, i) in sectionLinks"
-                  :key="i"
-                  :href="lnk.url || '#'"
-                  target="_blank"
-                  class="lvd-link"
-                >
-                  {{ lnk.text }}
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4.875 2.438H2.438A1.063 1.063 0 0 0 1.375 3.5v7.063A1.063 1.063 0 0 0 2.438 11.624H9.5a1.063 1.063 0 0 0 1.063-1.062V8.125M7.813 1.375H11.625M11.625 1.375V5.188M11.625 1.375L4.875 8.125" stroke="#1C4240" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </a>
-              </div>
-            </div>
-
-            <!-- Q 1.1.1 -->
-            <div class="lvd-question">
-              <h3 class="lvd-q-label">1.1.1 Title text</h3>
-              <p class="lvd-q-text">
-                Should clarification be provided that any other species or hybrids not explicitly
-                covered by these Test Guidelines should be treated according to the provisions of
-                document TGP/12 "Guidance for New Types and Species"
-                <span class="lvd-required">*</span>
-              </p>
-              <div class="lvd-radio-group">
-                <label class="lvd-radio-opt" @click.prevent="setRadio('q1', 'yes')">
-                  <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': radioAnswers.q1 === 'yes' }"></span>
-                  <span class="lvd-radio-text">Yes</span>
-                </label>
-                <label class="lvd-radio-opt" @click.prevent="setRadio('q1', 'no')">
-                  <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': radioAnswers.q1 === 'no' }"></span>
-                  <span class="lvd-radio-text">No</span>
-                </label>
-              </div>
-              <button class="lvd-add-para-btn">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="#1C4240" stroke-width="1.3"/><path d="M9 6v6M6 9h6" stroke="#1C4240" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Add Paragraph
+            <!-- 2.1 -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleMaterialSection('mat-2-1')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="materialSections[0].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="lvd-mat-title">{{ materialSections[0].number }} {{ materialSections[0].title }}</span>
               </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="materialSections[0].isOpen" class="lvd-mat-body">
+                  <p class="lvd-mat-empty">No content available.</p>
+                </div>
+              </Transition>
             </div>
 
-            <!-- Q 1.1.2 -->
-            <div class="lvd-question">
-              <h3 class="lvd-q-label">1.1.2 Title text</h3>
-              <p class="lvd-q-text">
-                Might it be necessary to add additional characteristics or additional states of
-                expressions for ornamental, fruit, industrial, vegetable, agricultural or other varieties?
-                <span class="lvd-required">*</span>
-              </p>
-              <div class="lvd-radio-group">
-                <label class="lvd-radio-opt" @click.prevent="setRadio('q2', 'yes')">
-                  <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': radioAnswers.q2 === 'yes' }"></span>
-                  <span class="lvd-radio-text">Yes</span>
-                </label>
-                <label class="lvd-radio-opt" @click.prevent="setRadio('q2', 'no')">
-                  <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': radioAnswers.q2 === 'no' }"></span>
-                  <span class="lvd-radio-text">No</span>
-                </label>
-              </div>
+            <!-- 2.2 -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleMaterialSection('mat-2-2')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="materialSections[1].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="lvd-mat-title">{{ materialSections[1].number }} {{ materialSections[1].title }}</span>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="materialSections[1].isOpen" class="lvd-mat-body">
+                  <p class="lvd-mat-empty">No content available.</p>
+                </div>
+              </Transition>
             </div>
 
-            <!-- Preview callout -->
-            <div class="lvd-preview-box">
-              <div class="lvd-preview-header">
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
-                <span class="lvd-preview-label">PREVIEW</span>
-              </div>
-              <p class="lvd-preview-text">
-                1.1 These Test Guidelines apply to all varieties of Argania spinosa (L.) Skeels.
-                Continue Sentence
-              </p>
+            <!-- 2.3 Seed Quality Requirements (open by default) -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleMaterialSection('mat-2-3')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="materialSections[2].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="lvd-mat-title">{{ materialSections[2].number }} {{ materialSections[2].title }}</span>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="materialSections[2].isOpen" class="lvd-mat-body lvd-mat-body--seed">
+                  <p class="lvd-mat-instruction">Please select one of the options (if applicable).</p>
+                  <div class="lvd-mat-radios">
+                    <label class="lvd-mat-radio-row" @click.prevent="seedQualityRadio = 'seed-only'">
+                      <span class="lvd-mat-radio-circle" :class="{ 'lvd-mat-radio-circle--on': seedQualityRadio === 'seed-only' }">
+                        <span v-if="seedQualityRadio === 'seed-only'" class="lvd-mat-radio-dot"></span>
+                      </span>
+                      <span class="lvd-mat-radio-text">Test Guidelines which only apply to seed-propagated varieties:</span>
+                    </label>
+                    <label class="lvd-mat-radio-row" @click.prevent="seedQualityRadio = 'both'">
+                      <span class="lvd-mat-radio-circle" :class="{ 'lvd-mat-radio-circle--on': seedQualityRadio === 'both' }">
+                        <span v-if="seedQualityRadio === 'both'" class="lvd-mat-radio-dot"></span>
+                      </span>
+                      <span class="lvd-mat-radio-text">Test Guidelines which apply to seed-propagated varieties as well as other types of varieties:</span>
+                    </label>
+                  </div>
+                  <div class="lvd-mat-preview">
+                    <div class="lvd-mat-preview-hd">
+                      <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                        <path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <span class="lvd-mat-preview-tag">PREVIEW</span>
+                    </div>
+                    <div class="lvd-mat-info-row">
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                        <circle cx="7.5" cy="7.5" r="6.5" stroke="#303030" stroke-width="1.1"/>
+                        <path d="M7.5 6.5V10.5" stroke="#303030" stroke-width="1.3" stroke-linecap="round"/>
+                        <circle cx="7.5" cy="4.5" r="0.8" fill="#303030"/>
+                      </svg>
+                      <span class="lvd-mat-info-text">There is currently no information to fill in.</span>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
             </div>
 
           </div>
-        </div>
+        </template>
+
+        <!-- original section card for all other chapters -->
+        <template v-else>
+          <div class="lvd-section-card">
+            <div class="lvd-block">
+
+              <h2 class="lvd-block-title">1.1 Standard items are configured by default</h2>
+
+              <!-- Section related links -->
+              <div class="lvd-section-links">
+                <span class="lvd-links-label">Related links:</span>
+                <div class="lvd-section-links-items">
+                  <a
+                    v-for="(lnk, i) in sectionLinks"
+                    :key="i"
+                    :href="lnk.url || '#'"
+                    target="_blank"
+                    class="lvd-link"
+                  >
+                    {{ lnk.text }}
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4.875 2.438H2.438A1.063 1.063 0 0 0 1.375 3.5v7.063A1.063 1.063 0 0 0 2.438 11.624H9.5a1.063 1.063 0 0 0 1.063-1.062V8.125M7.813 1.375H11.625M11.625 1.375V5.188M11.625 1.375L4.875 8.125" stroke="#1C4240" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Q 1.1.1 -->
+              <div class="lvd-question">
+                <h3 class="lvd-q-label">1.1.1 Title text</h3>
+                <p class="lvd-q-text">
+                  Should clarification be provided that any other species or hybrids not explicitly
+                  covered by these Test Guidelines should be treated according to the provisions of
+                  document TGP/12 "Guidance for New Types and Species"
+                  <span class="lvd-required">*</span>
+                </p>
+                <div class="lvd-radio-group">
+                  <label class="lvd-radio-opt" @click.prevent="setRadio('q1', 'yes')">
+                    <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': radioAnswers.q1 === 'yes' }"></span>
+                    <span class="lvd-radio-text">Yes</span>
+                  </label>
+                  <label class="lvd-radio-opt" @click.prevent="setRadio('q1', 'no')">
+                    <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': radioAnswers.q1 === 'no' }"></span>
+                    <span class="lvd-radio-text">No</span>
+                  </label>
+                </div>
+                <button class="lvd-add-para-btn">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="#1C4240" stroke-width="1.3"/><path d="M9 6v6M6 9h6" stroke="#1C4240" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  Add Paragraph
+                </button>
+              </div>
+
+              <!-- Q 1.1.2 -->
+              <div class="lvd-question">
+                <h3 class="lvd-q-label">1.1.2 Title text</h3>
+                <p class="lvd-q-text">
+                  Might it be necessary to add additional characteristics or additional states of
+                  expressions for ornamental, fruit, industrial, vegetable, agricultural or other varieties?
+                  <span class="lvd-required">*</span>
+                </p>
+                <div class="lvd-radio-group">
+                  <label class="lvd-radio-opt" @click.prevent="setRadio('q2', 'yes')">
+                    <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': radioAnswers.q2 === 'yes' }"></span>
+                    <span class="lvd-radio-text">Yes</span>
+                  </label>
+                  <label class="lvd-radio-opt" @click.prevent="setRadio('q2', 'no')">
+                    <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': radioAnswers.q2 === 'no' }"></span>
+                    <span class="lvd-radio-text">No</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Preview callout -->
+              <div class="lvd-preview-box">
+                <div class="lvd-preview-header">
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
+                  <span class="lvd-preview-label">PREVIEW</span>
+                </div>
+                <p class="lvd-preview-text">
+                  1.1 These Test Guidelines apply to all varieties of Argania spinosa (L.) Skeels.
+                  Continue Sentence
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </template>
+
       </main>
     </div>
 
@@ -1052,6 +1160,142 @@ function backToDashboard() {
 }
 .lvd-slide-enter-from,
 .lvd-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* ── ADDED: Material accordion styles ──────────────────────────────────────── */
+.lvd-mat-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lvd-mat-card {
+  background: #FFFFFF;
+  border-radius: 8px;
+  box-shadow: 0px 2px 8px rgba(70, 70, 70, 0.04);
+  overflow: hidden;
+}
+.lvd-mat-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Figtree', sans-serif;
+  transition: background 0.12s;
+}
+.lvd-mat-header:hover { background: rgba(0, 0, 0, 0.02); }
+.lvd-mat-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.lvd-mat-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: #303030;
+  line-height: 24px;
+}
+.lvd-mat-body {
+  padding: 0 16px 20px;
+}
+.lvd-mat-body--seed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 20px;
+}
+.lvd-mat-empty {
+  font-size: 14px;
+  color: #727272;
+}
+.lvd-mat-instruction {
+  font-size: 15px;
+  font-weight: 400;
+  color: #303030;
+  line-height: 19px;
+}
+.lvd-mat-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lvd-mat-radio-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.lvd-mat-radio-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid #1C4240;
+  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.lvd-mat-radio-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #1C4240;
+}
+.lvd-mat-radio-text {
+  font-size: 15px;
+  font-weight: 400;
+  color: #303030;
+  line-height: 22px;
+}
+.lvd-mat-preview {
+  background: rgba(184, 180, 164, 0.16);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lvd-mat-preview-hd {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.lvd-mat-preview-tag {
+  font-size: 12px;
+  font-weight: 500;
+  color: #AD4E02;
+  letter-spacing: 0.4px;
+}
+.lvd-mat-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lvd-mat-info-text {
+  font-size: 15px;
+  font-weight: 400;
+  color: #303030;
+  line-height: 19px;
+}
+.lvd-mat-body-enter-active,
+.lvd-mat-body-leave-active {
+  transition: max-height 0.28s ease, opacity 0.2s ease;
+  overflow: hidden;
+  max-height: 500px;
+}
+.lvd-mat-body-enter-from,
+.lvd-mat-body-leave-to {
   max-height: 0;
   opacity: 0;
 }
