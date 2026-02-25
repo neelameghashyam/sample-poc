@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: TG Template Webapp - Master Stack
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, acc, prd]
+  NamePrefix:
+    Type: String
+    Default: upov-tg-template-webapp
+  InfraStackName:
+    Type: String
+    Description: Name of the infrastructure stack to import values from
+  ArtifactsBucket:
+    Type: String
+    Description: S3 bucket containing deployment artifacts
+  OidcTokenUri:
+    Type: String
+  OidcUserinfoUri:
+    Type: String
+  OidcClientId:
+    Type: String
+  OidcRedirectUri:
+    Type: String
+  FrontendUrl:
+    Type: String
+  EntraidTenantId:
+    Type: String
+    Description: Microsoft EntraID tenant ID
+  EntraidClientId:
+    Type: String
+    Description: Microsoft EntraID application (client) ID
+  SendMail:
+    Type: String
+    Default: 'FALSE'
+
+Resources:
+  # S3 bucket for Vue.js static files
+  FrontendBucket:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${ArtifactsBucket}.s3.amazonaws.com/templates/iac/s3-frontend.yml
+      Parameters:
+        NamePrefix: !Ref NamePrefix
+        Environment: !Ref Environment
+
+  # Lambda functions (BFF + Auth)
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${ArtifactsBucket}.s3.amazonaws.com/templates/iac/lambda.yml
+      Parameters:
+        NamePrefix: !Ref NamePrefix
+        Environment: !Ref Environment
+        ArtifactsBucket: !Ref ArtifactsBucket
+        VpcId:
+          Fn::ImportValue: !Sub ${InfraStackName}-VpcId
+        SubnetIds:
+          Fn::ImportValue: !Sub ${InfraStackName}-AppSubnetIds
+        SecurityGroupId:
+          Fn::ImportValue: !Sub ${InfraStackName}-WebSecurityGroup
+        RdsProxyEndpoint:
+          Fn::ImportValue: !Sub ${InfraStackName}-RdsProxyEndpoint
+        OidcTokenUri: !Ref OidcTokenUri
+        OidcUserinfoUri: !Ref OidcUserinfoUri
+        OidcClientId: !Ref OidcClientId
+        OidcRedirectUri: !Ref OidcRedirectUri
+        FrontendUrl: !Ref FrontendUrl
+        EntraidTenantId: !Ref EntraidTenantId
+        EntraidClientId: !Ref EntraidClientId
+
+  # API Gateway
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: LambdaStack
+    Properties:
+      TemplateURL: !Sub https://${ArtifactsBucket}.s3.amazonaws.com/templates/iac/api-gateway.yml
+      Parameters:
+        NamePrefix: !Ref NamePrefix
+        Environment: !Ref Environment
+        LambdaArn: !GetAtt LambdaStack.Outputs.BffLambdaArn
+        AuthorizerLambdaArn: !GetAtt LambdaStack.Outputs.AuthorizerLambdaArn
+
+  # Cron Lambda functions
+  CronStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${ArtifactsBucket}.s3.amazonaws.com/templates/iac/cron.yml
+      Parameters:
+        NamePrefix: !Ref NamePrefix
+        Environment: !Ref Environment
+        ArtifactsBucket: !Ref ArtifactsBucket
+        VpcId:
+          Fn::ImportValue: !Sub ${InfraStackName}-VpcId
+        SubnetIds:
+          Fn::ImportValue: !Sub ${InfraStackName}-AppSubnetIds
+        SecurityGroupId:
+          Fn::ImportValue: !Sub ${InfraStackName}-WebSecurityGroup
+        RdsProxyEndpoint:
+          Fn::ImportValue: !Sub ${InfraStackName}-RdsProxyEndpoint
+        SendMail: !Ref SendMail
+
+Outputs:
+  FrontendBucketName:
+    Value: !GetAtt FrontendBucket.Outputs.BucketName
+    Export:
+      Name: !Sub ${NamePrefix}-FrontendBucketName
+
+  ApiEndpoint:
+    Value: !GetAtt ApiGatewayStack.Outputs.ApiEndpoint
+    Export:
+      Name: !Sub ${NamePrefix}-ApiEndpoint

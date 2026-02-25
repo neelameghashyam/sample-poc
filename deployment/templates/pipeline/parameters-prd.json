@@ -1,0 +1,15 @@
+{
+  "Parameters": {
+    "Environment": "prd",
+    "NamePrefix": "upov-tg-template-webapp",
+    "InfraStackName": "upov-tg-template-infra",
+    "OidcTokenUri": "https://www3.wipo.int/am/oauth2/access_token",
+    "OidcUserinfoUri": "https://www3.wipo.int/am/oauth2/userinfo",
+    "OidcClientId": "tg-template",
+    "OidcRedirectUri": "https://tg-template.upov.int/auth/callback",
+    "FrontendUrl": "https://tg-template.upov.int",
+    "EntraidTenantId": "",
+    "EntraidClientId": "",
+    "SendMail": "TRUE"
+  }
+}
