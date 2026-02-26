@@ -9,8 +9,8 @@ console.log('TG ID:', tgId);
 
 interface ChapterItem {
   number: string;
-  title: string;
-  subtitle?: string;
+  sidebarTitle: string;   // short name shown in sidebar
+  pageTitle: string;      // long name shown as main heading
   status: 'current' | 'pending' | 'completed' | 'saved' | 'disabled';
 }
 
@@ -112,19 +112,19 @@ const ex34RelatedLinks: RelatedLink[] = [
   { text: 'Test design guidance (TGP/9)', url: '#' },
 ];
 
-// ── Chapters ─────────────────────────────────────────────────────────────────
+// ── Chapters — sidebarTitle (short) vs pageTitle (long) ──────────────────────
 const chapters: ChapterItem[] = [
-  { number: '01', title: 'Subject',                    status: 'current' },
-  { number: '02', title: 'Material',                 status: 'pending' },
-  { number: '03', title: 'Examination',              status: 'pending' },
-  { number: '04', title: 'Assessment',               status: 'pending' },
-  { number: '05', title: 'Grouping',                 status: 'pending' },
-  { number: '06', title: 'Characteristics',          status: 'pending' },
-  { number: '07', title: 'Table of characteristics', status: 'pending' },
-  { number: '08', title: 'Explanations',             status: 'pending' },
-  { number: '09', title: 'Literature',               status: 'pending' },
-  { number: '10', title: 'Technical questionnaire',  status: 'pending' },
-  { number: '11', title: 'Annex',                    status: 'pending' },
+  { number: '01', sidebarTitle: 'Subject',                   pageTitle: 'Subject of these Test Guidelines',  status: 'current' },
+  { number: '02', sidebarTitle: 'Material',                  pageTitle: 'Material Required',                 status: 'pending' },
+  { number: '03', sidebarTitle: 'Examination',               pageTitle: 'Method of Examination',             status: 'pending' },
+  { number: '04', sidebarTitle: 'Assessment',                pageTitle: 'Assessment of Distinctness, Uniformity and Stability', status: 'pending' },
+  { number: '05', sidebarTitle: 'Grouping',                  pageTitle: 'Grouping of Varieties',             status: 'pending' },
+  { number: '06', sidebarTitle: 'Characteristics',           pageTitle: 'Characteristics',                   status: 'pending' },
+  { number: '07', sidebarTitle: 'Table of characteristics',  pageTitle: 'Table of Characteristics',          status: 'pending' },
+  { number: '08', sidebarTitle: 'Explanations',              pageTitle: 'Explanations',                      status: 'pending' },
+  { number: '09', sidebarTitle: 'Literature',                pageTitle: 'Literature',                        status: 'pending' },
+  { number: '10', sidebarTitle: 'Technical questionnaire',   pageTitle: 'Technical Questionnaire',           status: 'pending' },
+  { number: '11', sidebarTitle: 'Annex',                     pageTitle: 'Annex',                             status: 'pending' },
 ];
 
 const sectionLinks: RelatedLink[] = [
@@ -312,7 +312,8 @@ function backToDashboard() {
             <span class="lvd-step-num" :class="{ 'lvd-step-num--active': idx === activeChapterIndex }">
               {{ ch.number }}
             </span>
-            <span v-show="!chapterNavCollapsed" class="lvd-step-title">{{ ch.title }}</span>
+            <!-- sidebar uses the SHORT title -->
+            <span v-show="!chapterNavCollapsed" class="lvd-step-title">{{ ch.sidebarTitle }}</span>
           </li>
         </ul>
         <button class="lvd-collapse-btn" @click="toggleChapterNav">
@@ -327,15 +328,15 @@ function backToDashboard() {
       </aside>
 
       <main class="lvd-main">
+        <!-- main heading uses the LONG title -->
         <h1 class="lvd-section-heading">
-          {{ activeChapter.number }}. {{ activeChapter.title }}
+          {{ Number(activeChapter.number) }}. {{ activeChapter.pageTitle }}
         </h1>
 
         <!-- ── Material accordion — chapter 02 ─────────────────────────────── -->
         <template v-if="activeChapterIndex === 1">
           <div class="lvd-mat-accordion">
 
-            <!-- 2.1 -->
             <div class="lvd-mat-card">
               <button class="lvd-mat-header" @click="toggleMaterialSection('mat-2-1')">
                 <span class="lvd-mat-chevron">
@@ -353,7 +354,6 @@ function backToDashboard() {
               </Transition>
             </div>
 
-            <!-- 2.2 -->
             <div class="lvd-mat-card">
               <button class="lvd-mat-header" @click="toggleMaterialSection('mat-2-2')">
                 <span class="lvd-mat-chevron">
@@ -371,7 +371,6 @@ function backToDashboard() {
               </Transition>
             </div>
 
-            <!-- 2.3 Seed Quality Requirements -->
             <div class="lvd-mat-card">
               <button class="lvd-mat-header" @click="toggleMaterialSection('mat-2-3')">
                 <span class="lvd-mat-chevron">
@@ -437,7 +436,6 @@ function backToDashboard() {
               <Transition name="lvd-mat-body">
                 <div v-if="examinationSections[0].isOpen" class="lvd-mat-body lvd-ex-body">
 
-                  <!-- Related links -->
                   <div class="lvd-section-links">
                     <span class="lvd-links-label">Related links:</span>
                     <div class="lvd-section-links-items">
@@ -448,7 +446,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.1.1 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.1.1 Title text</h3>
                     <div class="lvd-ex-radios">
@@ -473,10 +470,8 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.1.2 -->
                   <h3 class="lvd-q-label">3.1.2 Standard items are configured by default</h3>
 
-                  <!-- 3.1.3 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.1.3 Title text</h3>
                     <p class="lvd-q-text">Is a satisfactory crop of fruit required?</p>
@@ -506,10 +501,8 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.1.4 -->
                   <h3 class="lvd-q-label">3.1.4 Standard items are configured by default</h3>
 
-                  <!-- PREVIEW -->
                   <div class="lvd-preview-box">
                     <div class="lvd-preview-header">
                       <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -570,7 +563,6 @@ function backToDashboard() {
               <Transition name="lvd-mat-body">
                 <div v-if="examinationSections[2].isOpen" class="lvd-mat-body lvd-ex-body">
 
-                  <!-- Related links -->
                   <div class="lvd-section-links">
                     <span class="lvd-links-label">Related links:</span>
                     <div class="lvd-section-links-items">
@@ -581,7 +573,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.3.1 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.3.1 Title text</h3>
                     <p class="lvd-q-text">Indicate if there are stages of development in the Table of Characteristics</p>
@@ -597,7 +588,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.3.2 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.3.2 Title text</h3>
                     <p class="lvd-q-text">Are there different types of plots for observation?</p>
@@ -613,7 +603,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.3.3 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.3.3 Title text</h3>
                     <p class="lvd-q-text">Indicate if the observation of color by eye applies:</p>
@@ -629,7 +618,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- PREVIEW -->
                   <div class="lvd-preview-box">
                     <div class="lvd-preview-header">
                       <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -659,7 +647,6 @@ function backToDashboard() {
               <Transition name="lvd-mat-body">
                 <div v-if="examinationSections[3].isOpen" class="lvd-mat-body lvd-ex-body">
 
-                  <!-- Related links -->
                   <div class="lvd-section-links">
                     <span class="lvd-links-label">Related links:</span>
                     <div class="lvd-section-links-items">
@@ -670,7 +657,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.4.1 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.4.1 Title text</h3>
                     <p class="lvd-q-text">Is there more than one method of propagation: <span class="lvd-required">*</span></p>
@@ -686,7 +672,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.4.2 Plot design -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.4.2 Plot design</h3>
                     <div class="lvd-ex-radios">
@@ -705,7 +690,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- 3.4.3 -->
                   <div class="lvd-question">
                     <h3 class="lvd-q-label">3.4.3 Title text</h3>
                     <p class="lvd-q-text">Is it necessary to state that the design of the tests should be such that plants or parts of plants may be removed for measurement or counting without prejudice to the observations which must be made up to the end of growing cycle?</p>
@@ -721,7 +705,6 @@ function backToDashboard() {
                     </div>
                   </div>
 
-                  <!-- PREVIEW with inline inputs -->
                   <div class="lvd-preview-box">
                     <div class="lvd-preview-header">
                       <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -1134,7 +1117,10 @@ function backToDashboard() {
   font-size: 13px;
   font-weight: 500;
   color: #1C4240;
- white-space: normal;  overflow: visible; text-overflow: unset;word-break: break-word; 
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;
   flex: 1;
   min-width: 0;
   transition: opacity 0.15s ease;
