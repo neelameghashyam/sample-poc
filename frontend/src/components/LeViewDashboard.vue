@@ -56,6 +56,7 @@ const radioAnswers         = ref<Record<string, 'yes' | 'no' | null>>({
 });
 const navigationLocked     = false;
 
+// ── Material accordion ──────────────────────────────────────────────────────
 const materialSections = ref([
   { id: 'mat-2-1', number: '2.1', title: 'Title text',                isOpen: false },
   { id: 'mat-2-2', number: '2.2', title: 'Title text',                isOpen: false },
@@ -68,8 +69,52 @@ function toggleMaterialSection(id: string) {
   if (s) s.isOpen = !s.isOpen;
 }
 
+// ── Examination accordion ────────────────────────────────────────────────────
+const examinationSections = ref([
+  { id: 'ex-3-1', number: '3.1', title: 'Number of Growing Cycles',                  isOpen: false },
+  { id: 'ex-3-2', number: '3.2', title: 'Testing Place',                              isOpen: false },
+  { id: 'ex-3-3', number: '3.3', title: 'Conditions for Conducting the Examination',  isOpen: false },
+  { id: 'ex-3-4', number: '3.4', title: 'Test Design',                                isOpen: false },
+  { id: 'ex-3-5', number: '3.5', title: 'Additional Tests',                           isOpen: false },
+]);
+
+function toggleExaminationSection(id: string) {
+  const s = examinationSections.value.find(x => x.id === id);
+  if (s) s.isOpen = !s.isOpen;
+}
+
+// 3.1 radios
+const growingCycleRadio = ref<'single' | 'two'>('two');
+const growingCycleSubRadio = ref<'two-separate' | 'single-planting'>('single-planting');
+const satisfactoryFruitRadio = ref<'yes' | 'no' | null>('yes');
+const fruitTypeRadio         = ref<'dormant' | 'no-dormant' | 'evergreen' | null>('evergreen');
+const inlineTreesInput       = ref('trees');
+
+// 3.3 radios
+const condStagesRadio = ref<'yes' | 'no' | null>('no');
+const condPlotsRadio  = ref<'yes' | 'no' | null>('no');
+const condColorRadio  = ref<'yes' | 'no' | null>('no');
+
+// 3.4 radios
+const tdMorePropRadio   = ref<'yes' | 'no' | null>('no');
+const tdPlotDesignRadio = ref<'single' | 'one-type' | 'diff-types' | null>('single');
+const tdRemovalRadio    = ref<'yes' | 'no' | null>('yes');
+const tdPlantCountInput = ref('');
+const tdPlantTypeInput  = ref('');
+
+const examinationRelatedLinks: RelatedLink[] = [
+  { text: 'Explanation of the growing cycle (GN 8)', url: '#' },
+];
+const ex33RelatedLinks: RelatedLink[] = [
+  { text: 'Guidance on stages (GN 12)', url: '#' },
+];
+const ex34RelatedLinks: RelatedLink[] = [
+  { text: 'Test design guidance (TGP/9)', url: '#' },
+];
+
+// ── Chapters ─────────────────────────────────────────────────────────────────
 const chapters: ChapterItem[] = [
-  { number: '01', title: 'Title',                    status: 'current' },
+  { number: '01', title: 'Subject',                    status: 'current' },
   { number: '02', title: 'Material',                 status: 'pending' },
   { number: '03', title: 'Examination',              status: 'pending' },
   { number: '04', title: 'Assessment',               status: 'pending' },
@@ -286,7 +331,7 @@ function backToDashboard() {
           {{ activeChapter.number }}. {{ activeChapter.title }}
         </h1>
 
-        <!-- Material accordion — chapter 02 -->
+        <!-- ── Material accordion — chapter 02 ─────────────────────────────── -->
         <template v-if="activeChapterIndex === 1">
           <div class="lvd-mat-accordion">
 
@@ -341,7 +386,6 @@ function backToDashboard() {
                 <div v-if="materialSections[2].isOpen" class="lvd-mat-body lvd-mat-body--seed">
                   <p class="lvd-mat-instruction">Please select one of the options (if applicable).</p>
                   <div class="lvd-mat-radios">
-                    <!-- FIX 1: radio uses ::after pseudo-element pattern, same as title chapter -->
                     <label class="lvd-mat-radio-row" @click.prevent="seedQualityRadio = 'seed-only'">
                       <span class="lvd-mat-radio-circle" :class="{ 'lvd-mat-radio-circle--on': seedQualityRadio === 'seed-only' }"></span>
                       <span class="lvd-mat-radio-text">Test Guidelines which only apply to seed-propagated varieties:</span>
@@ -353,7 +397,6 @@ function backToDashboard() {
                   </div>
                   <div class="lvd-mat-preview">
                     <div class="lvd-mat-preview-hd">
-                      <!-- FIX 3: same SVG as title chapter preview icon (with horizontal lines) -->
                       <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                         <path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/>
@@ -376,7 +419,353 @@ function backToDashboard() {
           </div>
         </template>
 
-        <!-- original section card for all other chapters -->
+        <!-- ── Examination accordion — chapter 03 ──────────────────────────── -->
+        <template v-else-if="activeChapterIndex === 2">
+          <div class="lvd-mat-accordion">
+
+            <!-- 3.1 Number of Growing Cycles -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleExaminationSection('ex-3-1')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="examinationSections[0].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <h4 class="lvd-mat-title">{{ examinationSections[0].number }} {{ examinationSections[0].title }}</h4>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="examinationSections[0].isOpen" class="lvd-mat-body lvd-ex-body">
+
+                  <!-- Related links -->
+                  <div class="lvd-section-links">
+                    <span class="lvd-links-label">Related links:</span>
+                    <div class="lvd-section-links-items">
+                      <a v-for="(lnk, i) in examinationRelatedLinks" :key="i" :href="lnk.url || '#'" target="_blank" class="lvd-link">
+                        {{ lnk.text }}
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4.875 2.438H2.438A1.063 1.063 0 0 0 1.375 3.5v7.063A1.063 1.063 0 0 0 2.438 11.624H9.5a1.063 1.063 0 0 0 1.063-1.062V8.125M7.813 1.375H11.625M11.625 1.375V5.188M11.625 1.375L4.875 8.125" stroke="#1C4240" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </a>
+                    </div>
+                  </div>
+
+                  <!-- 3.1.1 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.1.1 Title text</h3>
+                    <div class="lvd-ex-radios">
+                      <label class="lvd-ex-radio-row" @click.prevent="growingCycleRadio = 'single'; growingCycleSubRadio = null">
+                        <span class="lvd-ex-radio-circle" :class="{ 'lvd-ex-radio-circle--on': growingCycleRadio === 'single' }"></span>
+                        <span class="lvd-ex-radio-text">Single growing cycle</span>
+                      </label>
+                      <label class="lvd-ex-radio-row" @click.prevent="growingCycleRadio = 'two'">
+                        <span class="lvd-ex-radio-circle lvd-ex-radio-circle--green" :class="{ 'lvd-ex-radio-circle--on': growingCycleRadio === 'two' }"></span>
+                        <span class="lvd-ex-radio-text">Two independent growing cycles</span>
+                      </label>
+                      <template v-if="growingCycleRadio === 'two'">
+                        <label class="lvd-ex-radio-row lvd-ex-radio-row--indented" @click.prevent="growingCycleSubRadio = 'two-separate'">
+                          <span class="lvd-ex-radio-circle" :class="{ 'lvd-ex-radio-circle--on': growingCycleSubRadio === 'two-separate' }"></span>
+                          <span class="lvd-ex-radio-text">Two independent cycles in the form of two separate plantings</span>
+                        </label>
+                        <label class="lvd-ex-radio-row lvd-ex-radio-row--indented" @click.prevent="growingCycleSubRadio = 'single-planting'">
+                          <span class="lvd-ex-radio-circle lvd-ex-radio-circle--green" :class="{ 'lvd-ex-radio-circle--on': growingCycleSubRadio === 'single-planting' }"></span>
+                          <span class="lvd-ex-radio-text">Two independent cycles from a single planting</span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- 3.1.2 -->
+                  <h3 class="lvd-q-label">3.1.2 Standard items are configured by default</h3>
+
+                  <!-- 3.1.3 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.1.3 Title text</h3>
+                    <p class="lvd-q-text">Is a satisfactory crop of fruit required?</p>
+                    <div class="lvd-radio-group">
+                      <label class="lvd-radio-opt" @click.prevent="satisfactoryFruitRadio = 'yes'">
+                        <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': satisfactoryFruitRadio === 'yes' }"></span>
+                        <span class="lvd-radio-text">Yes</span>
+                      </label>
+                      <label class="lvd-radio-opt" @click.prevent="satisfactoryFruitRadio = 'no'">
+                        <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': satisfactoryFruitRadio === 'no' }"></span>
+                        <span class="lvd-radio-text">No</span>
+                      </label>
+                    </div>
+                    <div v-if="satisfactoryFruitRadio === 'yes'" class="lvd-ex-radios lvd-ex-radios--indented">
+                      <label class="lvd-ex-radio-row" @click.prevent="fruitTypeRadio = 'dormant'">
+                        <span class="lvd-ex-radio-circle" :class="{ 'lvd-ex-radio-circle--on': fruitTypeRadio === 'dormant' }"></span>
+                        <span class="lvd-ex-radio-text">Fruit species with clearly defined dormant period. <strong>(ASW3(a))</strong></span>
+                      </label>
+                      <label class="lvd-ex-radio-row" @click.prevent="fruitTypeRadio = 'no-dormant'">
+                        <span class="lvd-ex-radio-circle" :class="{ 'lvd-ex-radio-circle--on': fruitTypeRadio === 'no-dormant' }"></span>
+                        <span class="lvd-ex-radio-text">Fruit species with no clearly defined dormant period. <strong>(ASW3(b))</strong></span>
+                      </label>
+                      <label class="lvd-ex-radio-row" @click.prevent="fruitTypeRadio = 'evergreen'">
+                        <span class="lvd-ex-radio-circle lvd-ex-radio-circle--green" :class="{ 'lvd-ex-radio-circle--on': fruitTypeRadio === 'evergreen' }"></span>
+                        <span class="lvd-ex-radio-text">Evergreen species with indeterminate growth. <strong>(ASW3(c))</strong></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 3.1.4 -->
+                  <h3 class="lvd-q-label">3.1.4 Standard items are configured by default</h3>
+
+                  <!-- PREVIEW -->
+                  <div class="lvd-preview-box">
+                    <div class="lvd-preview-header">
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
+                      <span class="lvd-preview-label">PREVIEW</span>
+                    </div>
+                    <p class="lvd-preview-text">3.1.1 The minimum duration of tests should normally be two independent growing cycles.</p>
+                    <p class="lvd-preview-text">3.1.2 The two independent growing cycles may be observed from a single planting, examined in two separate growing cycles.</p>
+                    <div class="lvd-ex-inline-row">
+                      <span class="lvd-preview-text">3.1.3 In particular, it is essential that the</span>
+                      <div class="lvd-ex-input-wrap">
+                        <input v-model="inlineTreesInput" class="lvd-ex-input" type="text" placeholder="trees" />
+                      </div>
+                      <span class="lvd-preview-text">produce a satisfactory crop of fruit in each of the two growing cycles.</span>
+                    </div>
+                    <p class="lvd-preview-text">3.1.4 The testing of a ....</p>
+                  </div>
+
+                </div>
+              </Transition>
+            </div>
+
+            <!-- 3.2 Testing Place -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleExaminationSection('ex-3-2')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="examinationSections[1].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <h4 class="lvd-mat-title">{{ examinationSections[1].number }} {{ examinationSections[1].title }}</h4>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="examinationSections[1].isOpen" class="lvd-mat-body lvd-ex-body">
+                  <h3 class="lvd-q-label">3.2.1 Standard items are configured by default</h3>
+                  <div class="lvd-preview-box">
+                    <div class="lvd-preview-header">
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
+                      <span class="lvd-preview-label">PREVIEW</span>
+                    </div>
+                    <p class="lvd-preview-text">3.2.1 Tests are normally conducted at one place. In the case of tests conducted at more than one place, guidance is provided in TGP/9 "Examining Distinctness".</p>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+
+            <!-- 3.3 Conditions for Conducting the Examination -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleExaminationSection('ex-3-3')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="examinationSections[2].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <h4 class="lvd-mat-title">{{ examinationSections[2].number }} {{ examinationSections[2].title }}</h4>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="examinationSections[2].isOpen" class="lvd-mat-body lvd-ex-body">
+
+                  <!-- Related links -->
+                  <div class="lvd-section-links">
+                    <span class="lvd-links-label">Related links:</span>
+                    <div class="lvd-section-links-items">
+                      <a v-for="(lnk, i) in ex33RelatedLinks" :key="i" :href="lnk.url || '#'" target="_blank" class="lvd-link">
+                        {{ lnk.text }}
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4.875 2.438H2.438A1.063 1.063 0 0 0 1.375 3.5v7.063A1.063 1.063 0 0 0 2.438 11.624H9.5a1.063 1.063 0 0 0 1.063-1.062V8.125M7.813 1.375H11.625M11.625 1.375V5.188M11.625 1.375L4.875 8.125" stroke="#1C4240" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </a>
+                    </div>
+                  </div>
+
+                  <!-- 3.3.1 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.3.1 Title text</h3>
+                    <p class="lvd-q-text">Indicate if there are stages of development in the Table of Characteristics</p>
+                    <div class="lvd-radio-group">
+                      <label class="lvd-radio-opt" @click.prevent="condStagesRadio = 'yes'">
+                        <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': condStagesRadio === 'yes' }"></span>
+                        <span class="lvd-radio-text">Yes</span>
+                      </label>
+                      <label class="lvd-radio-opt" @click.prevent="condStagesRadio = 'no'">
+                        <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': condStagesRadio === 'no' }"></span>
+                        <span class="lvd-radio-text">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 3.3.2 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.3.2 Title text</h3>
+                    <p class="lvd-q-text">Are there different types of plots for observation?</p>
+                    <div class="lvd-radio-group">
+                      <label class="lvd-radio-opt" @click.prevent="condPlotsRadio = 'yes'">
+                        <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': condPlotsRadio === 'yes' }"></span>
+                        <span class="lvd-radio-text">Yes</span>
+                      </label>
+                      <label class="lvd-radio-opt" @click.prevent="condPlotsRadio = 'no'">
+                        <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': condPlotsRadio === 'no' }"></span>
+                        <span class="lvd-radio-text">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 3.3.3 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.3.3 Title text</h3>
+                    <p class="lvd-q-text">Indicate if the observation of color by eye applies:</p>
+                    <div class="lvd-radio-group">
+                      <label class="lvd-radio-opt" @click.prevent="condColorRadio = 'yes'">
+                        <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': condColorRadio === 'yes' }"></span>
+                        <span class="lvd-radio-text">Yes</span>
+                      </label>
+                      <label class="lvd-radio-opt" @click.prevent="condColorRadio = 'no'">
+                        <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': condColorRadio === 'no' }"></span>
+                        <span class="lvd-radio-text">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- PREVIEW -->
+                  <div class="lvd-preview-box">
+                    <div class="lvd-preview-header">
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
+                      <span class="lvd-preview-label">PREVIEW</span>
+                    </div>
+                    <div class="lvd-mat-info-row">
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6.5" stroke="#303030" stroke-width="1.1"/><path d="M7.5 6.5V10.5" stroke="#303030" stroke-width="1.3" stroke-linecap="round"/><circle cx="7.5" cy="4.5" r="0.8" fill="#303030"/></svg>
+                      <span class="lvd-mat-info-text">There is currently no information to fill in.</span>
+                    </div>
+                  </div>
+
+                </div>
+              </Transition>
+            </div>
+
+            <!-- 3.4 Test Design -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleExaminationSection('ex-3-4')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="examinationSections[3].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <h4 class="lvd-mat-title">{{ examinationSections[3].number }} {{ examinationSections[3].title }}</h4>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="examinationSections[3].isOpen" class="lvd-mat-body lvd-ex-body">
+
+                  <!-- Related links -->
+                  <div class="lvd-section-links">
+                    <span class="lvd-links-label">Related links:</span>
+                    <div class="lvd-section-links-items">
+                      <a v-for="(lnk, i) in ex34RelatedLinks" :key="i" :href="lnk.url || '#'" target="_blank" class="lvd-link">
+                        {{ lnk.text }}
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4.875 2.438H2.438A1.063 1.063 0 0 0 1.375 3.5v7.063A1.063 1.063 0 0 0 2.438 11.624H9.5a1.063 1.063 0 0 0 1.063-1.062V8.125M7.813 1.375H11.625M11.625 1.375V5.188M11.625 1.375L4.875 8.125" stroke="#1C4240" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </a>
+                    </div>
+                  </div>
+
+                  <!-- 3.4.1 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.4.1 Title text</h3>
+                    <p class="lvd-q-text">Is there more than one method of propagation: <span class="lvd-required">*</span></p>
+                    <div class="lvd-radio-group">
+                      <label class="lvd-radio-opt" @click.prevent="tdMorePropRadio = 'yes'">
+                        <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': tdMorePropRadio === 'yes' }"></span>
+                        <span class="lvd-radio-text">Yes</span>
+                      </label>
+                      <label class="lvd-radio-opt" @click.prevent="tdMorePropRadio = 'no'">
+                        <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': tdMorePropRadio === 'no' }"></span>
+                        <span class="lvd-radio-text">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 3.4.2 Plot design -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.4.2 Plot design</h3>
+                    <div class="lvd-ex-radios">
+                      <label class="lvd-ex-radio-row" @click.prevent="tdPlotDesignRadio = 'single'">
+                        <span class="lvd-ex-radio-circle lvd-ex-radio-circle--green" :class="{ 'lvd-ex-radio-circle--on': tdPlotDesignRadio === 'single' }"></span>
+                        <span class="lvd-ex-radio-text">Single plot</span>
+                      </label>
+                      <label class="lvd-ex-radio-row" @click.prevent="tdPlotDesignRadio = 'one-type'">
+                        <span class="lvd-ex-radio-circle" :class="{ 'lvd-ex-radio-circle--on': tdPlotDesignRadio === 'one-type' }"></span>
+                        <span class="lvd-ex-radio-text">One type of plot, but replicated</span>
+                      </label>
+                      <label class="lvd-ex-radio-row" @click.prevent="tdPlotDesignRadio = 'diff-types'">
+                        <span class="lvd-ex-radio-circle" :class="{ 'lvd-ex-radio-circle--on': tdPlotDesignRadio === 'diff-types' }"></span>
+                        <span class="lvd-ex-radio-text">If different types of plots</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 3.4.3 -->
+                  <div class="lvd-question">
+                    <h3 class="lvd-q-label">3.4.3 Title text</h3>
+                    <p class="lvd-q-text">Is it necessary to state that the design of the tests should be such that plants or parts of plants may be removed for measurement or counting without prejudice to the observations which must be made up to the end of growing cycle?</p>
+                    <div class="lvd-radio-group">
+                      <label class="lvd-radio-opt" @click.prevent="tdRemovalRadio = 'yes'">
+                        <span class="lvd-radio-circle lvd-radio-circle--green" :class="{ 'lvd-radio-circle--on': tdRemovalRadio === 'yes' }"></span>
+                        <span class="lvd-radio-text">Yes</span>
+                      </label>
+                      <label class="lvd-radio-opt" @click.prevent="tdRemovalRadio = 'no'">
+                        <span class="lvd-radio-circle" :class="{ 'lvd-radio-circle--on': tdRemovalRadio === 'no' }"></span>
+                        <span class="lvd-radio-text">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- PREVIEW with inline inputs -->
+                  <div class="lvd-preview-box">
+                    <div class="lvd-preview-header">
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M8.5 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V5.5L8.5 1ZM8.5 1v4.5H13" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9.5h5M5 11.5h3" stroke="#AD4E02" stroke-width="1.2" stroke-linecap="round"/></svg>
+                      <span class="lvd-preview-label">PREVIEW</span>
+                    </div>
+                    <div class="lvd-ex-inline-row">
+                      <span class="lvd-preview-text">3.4.2 Each test should be designed to result in a total of at least</span>
+                      <div class="lvd-ex-input-wrap lvd-ex-input-wrap--sm">
+                        <input v-model="tdPlantCountInput" class="lvd-ex-input" type="text" placeholder="3" />
+                      </div>
+                      <span class="lvd-preview-text">(number)</span>
+                      <div class="lvd-ex-input-wrap">
+                        <input v-model="tdPlantTypeInput" class="lvd-ex-input" type="text" placeholder="plants" />
+                      </div>
+                    </div>
+                    <p class="lvd-preview-text">3.4.3 The design of the tests should be such that plants or parts of plants may be removed for measurement or counting without prejudice to the observations which must be made up to the end of the growing cycle.</p>
+                  </div>
+
+                </div>
+              </Transition>
+            </div>
+
+            <!-- 3.5 Additional Tests -->
+            <div class="lvd-mat-card">
+              <button class="lvd-mat-header" @click="toggleExaminationSection('ex-3-5')">
+                <span class="lvd-mat-chevron">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path v-if="examinationSections[4].isOpen" d="M4.5 11.25L9 6.75L13.5 11.25" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path v-else d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#1C4240" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <h4 class="lvd-mat-title">{{ examinationSections[4].number }} {{ examinationSections[4].title }}</h4>
+              </button>
+              <Transition name="lvd-mat-body">
+                <div v-if="examinationSections[4].isOpen" class="lvd-mat-body">
+                  <p class="lvd-mat-empty">No content available.</p>
+                </div>
+              </Transition>
+            </div>
+
+          </div>
+        </template>
+
+        <!-- ── original section card for all other chapters ──────────────────── -->
         <template v-else>
           <div class="lvd-section-card">
             <div class="lvd-block">
@@ -745,9 +1134,7 @@ function backToDashboard() {
   font-size: 13px;
   font-weight: 500;
   color: #1C4240;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+ white-space: normal;  overflow: visible; text-overflow: unset;word-break: break-word; 
   flex: 1;
   min-width: 0;
   transition: opacity 0.15s ease;
@@ -864,7 +1251,6 @@ function backToDashboard() {
 .lvd-mat-header:hover { background: rgba(0, 0, 0, 0.02); }
 .lvd-mat-chevron { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
 
-/* FIX 2: same size as lvd-block-title (18px, 700, #303030) */
 .lvd-mat-title {
   font-family: 'Figtree', sans-serif;
   font-size: 18px;
@@ -881,7 +1267,6 @@ function backToDashboard() {
 .lvd-mat-radios { display: flex; flex-direction: column; gap: 12px; }
 .lvd-mat-radio-row { display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
 
-/* identical pattern to lvd-radio-circle — 18px, 2px border, ::after dot */
 .lvd-mat-radio-circle {
   width: 24px;
   height: 24px;
@@ -892,7 +1277,6 @@ function backToDashboard() {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 0px;
   transition: border-color 0.15s;
 }
 .lvd-mat-radio-circle::after {
@@ -903,17 +1287,9 @@ function backToDashboard() {
   background: transparent;
   transition: background 0.15s;
 }
-.lvd-mat-radio-circle {
-  border: 2px solid #1C4240; /* default border stays dark */
-}
-
-.lvd-mat-radio-circle.lvd-mat-radio-circle--on {
-  border-color: #009A6E;
-}
-
-.lvd-mat-radio-circle.lvd-mat-radio-circle--on::after { 
-  background: #009A6E; 
-}.lvd-mat-radio-text { font-size: 16px; font-weight: 400; color: #303030; line-height: 1px; }
+.lvd-mat-radio-circle.lvd-mat-radio-circle--on { border-color: #009A6E; }
+.lvd-mat-radio-circle.lvd-mat-radio-circle--on::after { background: #009A6E; }
+.lvd-mat-radio-text { font-size: 16px; font-weight: 400; color: #303030; line-height: 1; }
 
 .lvd-mat-preview { background: rgba(184, 180, 164, 0.14); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .lvd-mat-preview-hd { display: flex; align-items: center; gap: 5px; }
@@ -923,4 +1299,78 @@ function backToDashboard() {
 
 .lvd-mat-body-enter-active, .lvd-mat-body-leave-active { transition: max-height 0.28s ease, opacity 0.2s ease; overflow: hidden; max-height: 500px; }
 .lvd-mat-body-enter-from, .lvd-mat-body-leave-to { max-height: 0; opacity: 0; }
+
+/* ── Examination accordion ──────────────────────────────────────────────────── */
+.lvd-ex-body { display: flex; flex-direction: column; gap: 20px; padding: 0 16px 20px; }
+
+.lvd-ex-radios { display: flex; flex-direction: column; gap: 12px; }
+
+.lvd-ex-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.lvd-ex-radio-row--indented { padding-left: 32px; }
+
+.lvd-ex-radio-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #1C4240;
+  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.lvd-ex-radio-circle::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.15s;
+}
+.lvd-ex-radio-circle.lvd-ex-radio-circle--green { border-color: #009A6E; }
+.lvd-ex-radio-circle.lvd-ex-radio-circle--on { border-color: #009A6E; }
+.lvd-ex-radio-circle.lvd-ex-radio-circle--on::after { background: #009A6E; }
+
+.lvd-ex-radio-text { font-size: 16px; font-weight: 400; color: #303030; line-height: 19px; }
+
+.lvd-ex-radios--indented { padding-left: 16px; }
+
+/* Inline input row inside PREVIEW — matches design system input-atom */
+.lvd-ex-inline-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lvd-ex-input-wrap { display: inline-flex; }
+.lvd-ex-input-wrap--sm .lvd-ex-input { width: 48px; text-align: center; }
+
+.lvd-ex-input {
+  height: 36px;
+  width: 220px;
+  padding: 0 12px;
+  border: 1px solid #1C4240;
+  border-radius: 4px;
+  background: #FFFFFF;
+  font-family: 'Figtree', 'Segoe UI', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #303030;
+  outline: none;
+  transition: border-color 0.15s, border-width 0.15s, padding 0.15s;
+}
+.lvd-ex-input:focus {
+  border-width: 2px;
+  border-color: #1C4240;
+  padding: 0 11px;
+}
+.lvd-ex-input::placeholder { color: #727272; }
 </style>
