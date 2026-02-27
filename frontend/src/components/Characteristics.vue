@@ -1,6 +1,40 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed,onBeforeUnmount  } from 'vue';
+const rteBodyRef = ref<HTMLElement | null>(null);
 
+let isResizing = false;
+let startY = 0;
+let startHeight = 0;
+
+function startResize(e: MouseEvent) {
+  if (!rteBodyRef.value) return;
+
+  isResizing = true;
+  startY = e.clientY;
+  startHeight = rteBodyRef.value.offsetHeight;
+
+  document.addEventListener('mousemove', onResize);
+  document.addEventListener('mouseup', stopResize);
+}
+
+function onResize(e: MouseEvent) {
+  if (!isResizing || !rteBodyRef.value) return;
+
+  const dy = e.clientY - startY;
+  const newHeight = Math.max(100, startHeight + dy); // minimum height
+  rteBodyRef.value.style.height = newHeight + 'px';
+}
+
+function stopResize() {
+  isResizing = false;
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+}
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+});
 interface StateRow {
   id: string;
   expression: string;
@@ -290,9 +324,10 @@ function closeDropdowns() {
               </div>
               <button class="ch-rte-btn" title="Image"><svg width="20" height="18" viewBox="0 0 24 21" fill="none"><path d="M9 6.75A2.25 2.25 0 1 1 4.5 6.75 2.25 2.25 0 0 1 9 6.75Z" fill="#1C4240"/><path d="M3 0a3 3 0 0 0-3 3v15a3 3 0 0 0 3 3h18a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3H3Zm18 1.5A1.5 1.5 0 0 1 22.5 3v9.75l-5.665-2.921a.75.75 0 0 0-.804.073l-5.565 5.565-3.988-2.659a.75.75 0 0 0-.926.073L1.5 16.5V3A1.5 1.5 0 0 1 3 1.5H21Z" fill="#1C4240"/></svg></button>
             </div>
-            <div class="ch-rte-body">
+<div class="ch-rte-body" ref="rteBodyRef">
               <textarea v-model="textareaValue" class="ch-rte-textarea" :placeholder="mode === 'edit' ? 'Insert the text area' : 'Add explanation here'"></textarea>
-              <span class="ch-rte-resize"><svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M11.099 12.356 12.356 11.099c.346-.346.389-.869.095-1.163-.294-.294-.817-.251-1.163.095L10.031 11.288c-.346.346-.388.869-.095 1.163.294.294.817.251 1.163-.095ZM.195 11.509c.294.294.817.251 1.163-.095L11.415 1.358c.346-.346.388-.869.094-1.163-.293-.294-.816-.251-1.162.095L.29 10.346c-.346.346-.388.869-.095 1.163ZM5.914 12.199l6.285-6.285c.346-.346.388-.869.095-1.163-.294-.294-.817-.251-1.163.095L4.846 11.131c-.346.346-.388.869-.095 1.163.294.294.817.251 1.163-.095Z" fill="#1C4240"/></svg></span>
+             <span class="ch-rte-resize" @mousedown="startResize">
+             <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M11.099 12.356 12.356 11.099c.346-.346.389-.869.095-1.163-.294-.294-.817-.251-1.163.095L10.031 11.288c-.346.346-.388.869-.095 1.163.294.294.817.251 1.163-.095ZM.195 11.509c.294.294.817.251 1.163-.095L11.415 1.358c.346-.346.388-.869.094-1.163-.293-.294-.816-.251-1.162.095L.29 10.346c-.346.346-.388.869-.095 1.163ZM5.914 12.199l6.285-6.285c.346-.346.388-.869.095-1.163-.294-.294-.817-.251-1.163.095L4.846 11.131c-.346.346-.388.869-.095 1.163.294.294.817.251 1.163-.095Z" fill="#1C4240"/></svg></span>
             </div>
           </div>
         </section>
@@ -399,10 +434,10 @@ function closeDropdowns() {
 .ch-rte-btn:hover { opacity: 1; }
 .ch-rte-group { display: flex; align-items: center; gap: 3px; }
 .ch-rte-caret { display: flex; align-items: center; cursor: pointer; }
-.ch-rte-body { position: relative; border: 1px solid #1C4240; border-top: none; border-radius: 0 0 4px 4px; padding: 12px 16px 16px; min-height: 100px; }
+.ch-rte-body { position: relative; border: 1px solid #1C4240; border-top: none; border-radius: 0 0 4px 4px; padding: 12px 16px 16px; min-height: 100px;transition: height 0.05s ease; }
 .ch-rte-textarea { width: 100%; min-height: 80px; border: none; outline: none; resize: none; font-family: inherit; font-size: 14px; color: #727272; background: transparent; }
 .ch-rte-textarea::placeholder { color: #B8B4A4; }
-.ch-rte-resize { position: absolute; bottom: 2px; right: 2px; opacity: 0.5; cursor: nwse-resize; }
+.ch-rte-resize { position: absolute; bottom: 0px; right: 5px; opacity: 0.5; cursor: nwse-resize; }
 
 /* Footer */
 .ch-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #E2E2E2; flex-shrink: 0; }

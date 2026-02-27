@@ -1,12 +1,45 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed,onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import CharacteristicsModal from "./Characteristics.vue";
 const route  = useRoute();
 const router = useRouter();
 const tgId   = route.params.id;
 console.log('TG ID:', tgId);
+const rteFieldRef = ref<HTMLElement | null>(null);
+const rteTextareaRef = ref<HTMLTextAreaElement | null>(null);
 
+let isResizing = false;
+let startY = 0;
+let startHeight = 0;
+
+function startResize(e: MouseEvent) {
+  isResizing = true;
+  startY = e.clientY;
+  startHeight = rteFieldRef.value?.offsetHeight || 0;
+
+  document.addEventListener('mousemove', onResize);
+  document.addEventListener('mouseup', stopResize);
+}
+
+function onResize(e: MouseEvent) {
+  if (!isResizing || !rteFieldRef.value) return;
+
+  const dy = e.clientY - startY;
+  const newHeight = Math.max(122, startHeight + dy); // 122 = your min-height
+  rteFieldRef.value.style.height = newHeight + 'px';
+}
+
+function stopResize() {
+  isResizing = false;
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+}
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+});
 interface ChapterItem {
   number: string;
   sidebarTitle: string;   // short name shown in sidebar
@@ -545,9 +578,14 @@ function backToDashboard() {
                   </button>
                 </div>
               </div>
-              <div class="lvd-rte-field">
-                <textarea v-model="textareaValue" class="lvd-rte-textarea" placeholder="Add explanation here"></textarea>
-                <span class="lvd-rte-resize">
+<div class="lvd-rte-field" ref="rteFieldRef">
+<textarea
+  ref="rteTextareaRef"
+  v-model="textareaValue"
+  class="lvd-rte-textarea"
+  placeholder="Add explanation here">
+</textarea>              
+<span class="lvd-rte-resize" @mousedown="startResize">
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0988 12.3558L12.3559 11.0987C12.7016 10.753 12.7441 10.2298 12.4503 9.93604C12.1565 9.64228 11.6334 9.68478 11.2877 10.0305L10.0306 11.2876C9.68489 11.6332 9.64239 12.1564 9.93615 12.4502C10.2299 12.7439 10.7531 12.7015 11.0988 12.3558ZM0.195356 11.509C0.489112 11.8027 1.0123 11.7602 1.358 11.4145L11.4146 1.35789C11.7603 1.01219 11.8028 0.489002 11.5091 0.195247C11.2153 -0.0985092 10.6921 -0.0560124 10.3464 0.289684L0.289794 10.3463C-0.0559024 10.692 -0.0983995 11.2152 0.195356 11.509ZM5.91412 12.1994L12.1995 5.91401C12.5452 5.56832 12.5877 5.04513 12.294 4.75137C12.0002 4.45762 11.477 4.50011 11.1313 4.84581L4.84592 11.1312C4.50022 11.4769 4.45773 12.0001 4.75148 12.2938C5.04524 12.5876 5.56842 12.5451 5.91412 12.1994Z" fill="#1C4240"/></svg>
                 </span>
               </div>
@@ -1470,7 +1508,7 @@ function backToDashboard() {
   border-radius: 0 0 4px 4px;
   padding: 16px 20px 16px 16px;
   min-height: 122px;
-  max-height: 216px;
+  resize: none;
 }
 .lvd-rte-textarea {
   flex: 1;
