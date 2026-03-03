@@ -1,20 +1,102 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 
-const tinymceApiKey = 'YOUR_LICENSE_KEY_HERE';
+const tinymceApiKey = import.meta.env.VITE_TINY_API_KEY;
 
+// TinyMCE configuration for the rich explanation editor
 const tinymceInit = {
-  height: 200,
+  height: 300,
   menubar: false,
-  plugins: ['lists', 'link', 'image', 'table', 'code', 'help'],
-  toolbar: 'help | fontfamily fontsize | bullist numlist | code | forecolor | link | penicon | table | image',
-  skin: 'oxide',
-  content_css: 'default',
-  placeholder: 'Add explanation here',
-  resize: true,
-  statusbar: true,
   branding: false,
+  plugins: 'code insertdatetime advlist charmap preview anchor searchreplace visualblocks fullscreen help a11ychecker advcode casechange export formatpainter linkchecker autolink lists checklist media mediaembed pageembed permanentpen powerpaste table advtable tinymcespellchecker image link',
+  toolbar: 'help a11ycheck casechange checklist code export formatpainter pageembed permanentpen table image',
+  toolbar_mode: 'floating',
+  force_br_newlines: true,
+  relative_urls: false,
+  remove_script_host: false,
+  images_file_types: 'jpeg,jpg,jpe,jfi,jif,jfif,png,gif,bmp,webp',
+
+  images_upload_handler: function (blobInfo: { blob: () => Blob; filename: () => string }, progress: (percent: number) => void) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.withCredentials = false;
+      xhr.open('POST', 'fileUpload.upov', false);
+      
+      xhr.upload.onprogress = function (e) {
+        progress(e.loaded / e.total * 100);
+      };
+      
+      xhr.onload = function () {
+        if (xhr.status != 200) {
+          reject('HTTP Error: ' + xhr.status);
+          return;
+        }
+        const json = xhr.responseText;
+        console.log("json success =>> " + json);
+        resolve(json);
+      };
+      
+      xhr.onerror = function () {
+        reject('Image upload failed due to a XHR Transport error. Code: ' + xhr.status);
+      };
+      
+      const formData = new FormData();
+      formData.append('upload', blobInfo.blob(), (new Date()).getTime() + blobInfo.filename());
+      xhr.send(formData);
+    });
+  },
+  content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+  file_picker_types: 'image',
+
+  file_picker_callback: function (cb: (url: string, meta: { title: string }) => void) {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    
+    input.onchange = function (this: HTMLInputElement) {
+      const file = this.files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function () {
+        const id = 'blobid' + (new Date()).getTime();
+
+        const blobCache = (window as { tinymce: { activeEditor: { editorUpload: { blobCache: { create: (id: string, file: File, base64: string) => { blobUri: () => string }; add: (blobInfo: unknown) => void } } } } }).tinymce.activeEditor.editorUpload.blobCache;
+        const base64 = (reader.result as string).split(',')[1];
+        const blobInfo = blobCache.create(id, file, base64);
+        blobCache.add(blobInfo);
+        
+        cb(blobInfo.blobUri(), { title: file.name });
+      };
+      reader.readAsDataURL(file);
+    };
+    
+    input.click();
+  }
+};
+
+// TinyMCE configuration for inline single-line editor (Growth Stage)
+const tinymceInlineInit = {
+  menubar: false,
+  inline: true,
+  valid_elements: 'strong,em,span[style],a[href]',
+  valid_styles: {
+    '*': 'font-size,font-family,color,text-decoration,text-align'
+  },
+  toolbar: 'bold italic underline subscript superscript',
+  force_br_newlines: false,
+  forced_root_block: false,
+
+  setup: (editor: { on: (event: string, callback: (e: KeyboardEvent) => void) => void }) => {
+    editor.on('keydown', (event: KeyboardEvent) => {
+      if (event.keyCode === 13) { // Enter key
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+  }
 };
 
 interface StateRow {
@@ -79,7 +161,11 @@ const form = ref<CharacteristicForm>({
   explanation: props.initialData?.explanation ?? '',
 });
 
-const textareaValue = ref(form.value.explanation);
+// Separate ref for TinyMCE explanation value
+const explanationValue = ref(form.value.explanation);
+
+// Separate ref for inline growth stage editor
+const growthStageValue = ref(form.value.growthStage);
 
 const hasActiveMethods = computed(() =>
   form.value.methods.MG || form.value.methods.MS || form.value.methods.VG || form.value.methods.VS || form.value.methods.OTHER
@@ -110,7 +196,12 @@ function removeVariety(state: StateRow, v: string) {
 
 function handleSave() {
   if (!isFormValid.value) return;
-  emit('save', { ...form.value, explanation: textareaValue.value });
+  
+  // Update form with TinyMCE values
+  form.value.explanation = explanationValue.value;
+  form.value.growthStage = growthStageValue.value;
+  
+  emit('save', { ...form.value });
 }
 
 function handleExit() {
@@ -126,6 +217,11 @@ function toggleDropdown(key: string) {
 function closeDropdowns() {
   openDropdown.value = null;
 }
+
+// Watch for changes in growthStage to sync with TinyMCE
+watch(() => form.value.growthStage, (newVal) => {
+  growthStageValue.value = newVal;
+});
 </script>
 
 <template>
@@ -192,7 +288,15 @@ function closeDropdowns() {
             </div>
             <div class="ch-field">
               <label class="ch-label">Growth {{ mode === 'edit' ? 'Stage' : 'Stages' }}</label>
-              <input v-model="form.growthStage" class="ch-input" type="text" :placeholder="mode === 'edit' ? '00' : 'Insert the stages'" />
+              <!-- Using TinyMCE inline editor for Growth Stage -->
+              <div class="ch-inline-editor-wrapper">
+                <Editor
+                  v-model="growthStageValue"
+                  :api-key="tinymceApiKey"
+                  :init="tinymceInlineInit"
+                  tag-name="div"
+                />
+              </div>
             </div>
           </div>
         </section>
@@ -281,12 +385,12 @@ function closeDropdowns() {
           </button>
         </section>
 
-        <!-- ✅ TinyMCE Section replacing custom RTE -->
+        <!-- ✅ TinyMCE Section for Explanation -->
         <section class="ch-section">
           <h3 class="ch-label ch-label--mb">Add explanation for this characteristic</h3>
           <div class="ch-rte-tinymce">
             <Editor
-              v-model="textareaValue"
+              v-model="explanationValue"
               :api-key="tinymceApiKey"
               :init="tinymceInit"
             />
@@ -302,7 +406,6 @@ function closeDropdowns() {
           </svg>
           Exit
         </button>
-
         <button
           class="ch-save-btn"
           :class="{ 'ch-save-btn--disabled': !isFormValid }"
@@ -326,7 +429,6 @@ function closeDropdowns() {
 
 <style scoped>
 *, *::before, *::after { box-sizing: border-box; }
-
 .ch-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   display: flex; align-items: center; justify-content: center;
@@ -365,6 +467,26 @@ function closeDropdowns() {
 .ch-input { height: 36px; padding: 0 12px; border: 1px solid #1C4240; border-radius: 4px; font-family: inherit; font-size: 14px; color: #303030; background: #FFFFFF; outline: none; transition: border-width 0.1s, padding 0.1s; }
 .ch-input:focus { border-width: 2px; padding: 0 11px; }
 .ch-input::placeholder { color: #B8B4A4; }
+
+/* Inline Editor Wrapper for Growth Stage */
+.ch-inline-editor-wrapper {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #1C4240;
+  border-radius: 4px;
+  background: #FFFFFF;
+  cursor: text;
+}
+
+.ch-inline-editor-wrapper :deep(.tox-tinymce) {
+  border: none !important;
+}
+
+.ch-inline-editor-wrapper :deep(.tox-tinymce-inline) {
+  border: none !important;
+  box-shadow: none !important;
+}
+
 .ch-select-wrap { position: relative; height: 36px; padding: 0 12px; border: 1px solid #1C4240; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; background: #FFFFFF; user-select: none; }
 .ch-select-value { font-size: 14px; color: #B8B4A4; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ch-select-value--filled { color: #303030; }
@@ -395,22 +517,28 @@ function closeDropdowns() {
   border-radius: 4px !important;
   font-family: 'Figtree', 'Segoe UI', Arial, sans-serif;
 }
+
 .ch-rte-tinymce :deep(.tox-toolbar__primary) {
   background: #FFFFFF !important;
   border-bottom: 1px solid #E2E2E2 !important;
 }
+
 .ch-rte-tinymce :deep(.tox-toolbar-overlord) {
   background: #FFFFFF !important;
 }
+
 .ch-rte-tinymce :deep(.tox .tox-tbtn svg) {
   fill: #1C4240 !important;
 }
+
 .ch-rte-tinymce :deep(.tox .tox-tbtn:hover) {
   background: rgba(28, 66, 64, 0.06) !important;
 }
+
 .ch-rte-tinymce :deep(.tox .tox-statusbar) {
   border-top: 1px solid #E2E2E2 !important;
 }
+
 .ch-rte-tinymce :deep(.tox-statusbar__branding) {
   display: none;
 }
