@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Radiobutton, Input } from 'upov-ui';
+import { Radiobutton, Input, Button } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -11,12 +12,23 @@ const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
 
 const data = computed(() => store.chapters['03']);
+const refreshing = ref(false);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('03', field, value);
 }
 
 const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
+
+async function refreshPreview() {
+  refreshing.value = true;
+  try {
+    const res = await editorApi.open(store.tgId!);
+    store.chapters['03'] = res.chapters['03'];
+  } finally {
+    refreshing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -93,8 +105,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('GrowingCycleAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -102,9 +112,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
     <SectionAccordion number="3.2" title="Testing Place">
       <div style="display: flex; flex-direction: column; gap: 16px">
         <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.2.1 Standard items are configured by default</h3>
-        <ChapterPreview>
-          <p>3.2.1 Tests are normally conducted at one place. In the case of tests conducted at more than one place, guidance is provided in TGP/9 "Examining Distinctness".</p>
-        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -169,8 +176,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('ConditionAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -247,8 +252,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('TestDesignAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -266,5 +269,51 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         </div>
       </div>
     </SectionAccordion>
+
+    <!-- ── Chapter-level Preview (end of chapter) ── -->
+    <ChapterPreview>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">3.1 Number of Growing Cycles</p>
+          <p v-if="data.GrowingCycle">Growing cycle: <strong>{{ data.GrowingCycle }}</strong><span v-if="data.PlantingForm"> — {{ data.PlantingForm }}</span></p>
+          <p v-if="data.IsFruitCrop">Fruit crop required: <strong>{{ data.IsFruitCrop === 'Y' ? 'Yes' : 'No' }}</strong><span v-if="data.FruitDormantPeriod"> ({{ data.FruitDormantPeriod }})</span></p>
+          <div v-if="data.GrowingCycleAddInfo" v-html="data.GrowingCycleAddInfo"></div>
+          <em v-if="!data.GrowingCycle && !data.GrowingCycleAddInfo" style="color: var(--color-neutral-500)">No content yet</em>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">3.2 Testing Place</p>
+          <p>3.2.1 Tests are normally conducted at one place. In the case of tests conducted at more than one place, guidance is provided in TGP/9 "Examining Distinctness".</p>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">3.3 Conditions for Conducting the Examination</p>
+          <p v-if="data.Devlopmentstage">Development stages: <strong>{{ data.Devlopmentstage === 'Y' ? 'Yes' : 'No' }}</strong></p>
+          <p v-if="data.DifferentPlotsForObservation">Different plot types: <strong>{{ data.DifferentPlotsForObservation === 'Y' ? 'Yes' : 'No' }}</strong></p>
+          <p v-if="data.EyeColorObservation">Color observation: <strong>{{ data.EyeColorObservation === 'Y' ? 'Yes' : 'No' }}</strong></p>
+          <div v-if="data.ConditionAddInfo" v-html="data.ConditionAddInfo"></div>
+          <em v-if="!data.Devlopmentstage && !data.ConditionAddInfo" style="color: var(--color-neutral-500)">No content yet</em>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">3.4 Test Design</p>
+          <p v-if="data.PlantNumber || data.PlantType">Plants: <strong>{{ data.PlantNumber }} {{ data.PlantType }}</strong></p>
+          <p v-if="data.PlotDesign">Plot design: <strong>{{ data.PlotDesign }}</strong></p>
+          <div v-if="data.TestDesignAddInfo" v-html="data.TestDesignAddInfo"></div>
+          <em v-if="!data.PlantNumber && !data.PlotDesign && !data.TestDesignAddInfo" style="color: var(--color-neutral-500)">No content yet</em>
+        </div>
+        <div v-if="data.OtherGrowingCycleInfo">
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">3.5 Additional Tests</p>
+          <div v-html="data.OtherGrowingCycleInfo"></div>
+        </div>
+      </div>
+    </ChapterPreview>
+
+    <!-- ── Refresh Button ── -->
+    <div style="display: flex; justify-content: flex-end">
+      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
+        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
+          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
+      </Button>
+    </div>
   </div>
 </template>
