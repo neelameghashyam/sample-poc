@@ -5,6 +5,7 @@ import type { SelectOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 import SectionAccordion from '../shared/SectionAccordion.vue';
+import ChapterPreview from '../shared/ChapterPreview.vue';
 import type {
   TqSubject,
   TqBreedingScheme,
@@ -19,6 +20,7 @@ const subjects = computed<TqSubject[]>(() => data.value?.subjects ?? []);
 const breedingSchemes = computed<TqBreedingScheme[]>(() => data.value?.breedingSchemes ?? []);
 const propagationMethods = computed<TqPropagationMethod[]>(() => data.value?.propagationMethods ?? []);
 const tqChars = computed<TqCharacteristic[]>(() => data.value?.characteristics ?? []);
+const refreshing = ref(false);
 
 // Available chars from ch07 for adding to TQ5
 const ch07Chars = computed(() => store.chapters['07']?.characteristics ?? []);
@@ -36,6 +38,15 @@ function onFieldChange(field: string, value: any) {
 async function refreshCh10() {
   const res = await editorApi.open(store.tgId!);
   store.chapters['10'] = res.chapters['10'];
+}
+
+async function refreshPreview() {
+  refreshing.value = true;
+  try {
+    await refreshCh10();
+  } finally {
+    refreshing.value = false;
+  }
 }
 
 // ── Subjects CRUD ────────────────────────────────────────────────────────────
@@ -150,11 +161,7 @@ function pmLabel(code: string) {
 <template>
   <div style="display: flex; flex-direction: column; gap: 16px">
     <!-- 10.1 Subjects -->
-    <SectionAccordion
-      number="10.1"
-      title="Subjects"
-      :open="true"
-    >
+    <SectionAccordion number="10.1" title="Subjects" :open="true">
       <div style="display: flex; flex-direction: column; gap: 8px">
         <Table v-if="subjects.length > 0">
           <thead>
@@ -188,12 +195,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- 10.2 Breeding Scheme -->
-    <SectionAccordion
-      number="10.2"
-      title="Breeding Scheme"
-
-
-    >
+    <SectionAccordion number="10.2" title="Breeding Scheme">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <label style="font-size: 13px; font-weight: 600; color: #606060">Standard breeding scheme displayed?</label>
         <RadioGroup :model-value="data?.IsStandardBreedingScheme === 'Y' ? 'Y' : 'N'" direction="horizontal"
@@ -226,12 +228,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- 10.3 Propagation Methods -->
-    <SectionAccordion
-      number="10.3"
-      title="Propagation Methods"
-
-
-    >
+    <SectionAccordion number="10.3" title="Propagation Methods">
       <div style="display: flex; flex-direction: column; gap: 6px">
         <div v-if="propagationMethods.length > 0" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px">
           <Chip
@@ -250,12 +247,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- 10.4 TQ Characteristics -->
-    <SectionAccordion
-      number="10.4"
-      title="Characteristics for Technical Questionnaire"
-
-
-    >
+    <SectionAccordion number="10.4" title="Characteristics for Technical Questionnaire">
       <Table v-if="tqChars.length > 0">
         <thead>
           <tr>
@@ -284,12 +276,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- 10.5 Hybrid Varieties -->
-    <SectionAccordion
-      number="10.5"
-      title="Hybrid Varieties"
-
-
-    >
+    <SectionAccordion number="10.5" title="Hybrid Varieties">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <label style="font-size: 13px; font-weight: 600; color: #606060">Hybrid variety section included?</label>
         <RadioGroup :model-value="data?.TqHybridVariety === 'Y' ? 'Y' : 'N'" direction="horizontal"
@@ -316,12 +303,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- 10.6 Color Image & Virus -->
-    <SectionAccordion
-      number="10.6"
-      title="Color Image & Disease Information"
-
-
-    >
+    <SectionAccordion number="10.6" title="Color Image & Disease Information">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <label style="font-size: 13px; font-weight: 600; color: #606060">Color image required?</label>
         <RadioGroup :model-value="data?.IsTqColorImage === 'Y' ? 'Y' : 'N'" direction="horizontal"
@@ -354,12 +336,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- 10.7 Similar Varieties & Additional -->
-    <SectionAccordion
-      number="10.7"
-      title="Similar Varieties & Additional Information"
-
-
-    >
+    <SectionAccordion number="10.7" title="Similar Varieties & Additional Information">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <Input :model-value="data?.DiffCharacteristic || ''" placeholder="e.g. Characteristic" label="Differentiating characteristic label"
           @update:model-value="onFieldChange('DiffCharacteristic', $event)" />
@@ -385,6 +362,59 @@ function pmLabel(code: string) {
         label="Additional TQ sentence" placeholder="Additional sentence..."
         @update:model-value="onFieldChange('TqAddSentence', $event)" />
     </SectionAccordion>
+
+    <!-- ── Chapter-level Preview (end of chapter) ── -->
+    <ChapterPreview>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.1 Subjects</p>
+          <p v-if="subjects.length === 0" style="color: var(--color-neutral-500); font-style: italic">No subjects added.</p>
+          <div v-else style="display: flex; flex-direction: column; gap: 2px">
+            <div v-for="sub in subjects" :key="sub.TqSubjectID" style="font-size: 13px">
+              <strong>{{ sub.TqBotanicalName }}</strong>
+              <span v-if="sub.TqCommonName"> ({{ sub.TqCommonName }})</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.2 Breeding Scheme</p>
+          <p v-if="breedingSchemes.length === 0" style="color: var(--color-neutral-500); font-style: italic">No breeding schemes selected.</p>
+          <div v-else style="display: flex; flex-wrap: wrap; gap: 4px">
+            <span v-for="bs in breedingSchemes" :key="bs.TqBreedingSchemeID"
+              style="background: rgba(184,180,164,0.25); border-radius: 4px; padding: 2px 8px; font-size: 12px">
+              {{ bsLabel(bs.TqBreedingSchemeMethodID) }}
+            </span>
+          </div>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.3 Propagation Methods</p>
+          <p v-if="propagationMethods.length === 0" style="color: var(--color-neutral-500); font-style: italic">No propagation methods selected.</p>
+          <div v-else style="display: flex; flex-wrap: wrap; gap: 4px">
+            <span v-for="pm in propagationMethods" :key="pm.TqPropagationMethodID"
+              style="background: rgba(184,180,164,0.25); border-radius: 4px; padding: 2px 8px; font-size: 12px">
+              {{ pmLabel(pm.TqVarietyPropagationMethodID) }}
+            </span>
+          </div>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.4 TQ Characteristics</p>
+          <p v-if="tqChars.length === 0" style="color: var(--color-neutral-500); font-style: italic">No TQ characteristics selected.</p>
+          <div v-else style="display: flex; flex-direction: column; gap: 2px">
+            <div v-for="ch in tqChars" :key="ch.TQ_CharacteristicsID" style="font-size: 13px">{{ ch.SequenceNumber }}. {{ ch.Name }}</div>
+          </div>
+        </div>
+      </div>
+    </ChapterPreview>
+
+    <!-- ── Refresh Button ── -->
+    <div style="display: flex; justify-content: flex-end">
+      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
+        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
+          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
+      </Button>
+    </div>
   </div>
 </template>
 

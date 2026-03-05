@@ -4,11 +4,13 @@ import { Button, Card, Input, Table } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 
 const data = computed(() => store.chapters['07']);
 const characteristics = computed<Characteristic[]>(() => data.value?.characteristics ?? []);
+const refreshing = ref(false);
 
 // ── Search adopted ────────────────────────────────────────────────────────────
 const searchQuery = ref('');
@@ -42,8 +44,6 @@ async function importAdopted(result: AdoptedSearchResult) {
     ObservationM_PlotT: result.methods,
     IsAdoptedTG: 'Y',
   });
-  // Refresh characteristics
-  const chars = await editorApi.searchAdopted(store.tgId!, '');
   await refreshCharacteristics();
   searchResults.value = searchResults.value.filter((r) => r.id !== result.id);
 }
@@ -89,6 +89,16 @@ async function onDrop(targetIndex: number) {
   await editorApi.reorderCharacteristics(store.tgId!, order);
   await refreshCharacteristics();
   dragIndex = -1;
+}
+
+// ── Refresh Preview ───────────────────────────────────────────────────────────
+async function refreshPreview() {
+  refreshing.value = true;
+  try {
+    await refreshCharacteristics();
+  } finally {
+    refreshing.value = false;
+  }
 }
 </script>
 
@@ -210,6 +220,38 @@ async function onDrop(targetIndex: number) {
         <p v-else style="font-size: 13px; color: #999">No expressions defined.</p>
       </div>
     </Card>
+
+    <!-- ── Chapter-level Preview (end of chapter) ── -->
+    <ChapterPreview>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px">7.1 Characteristics summary</p>
+          <p v-if="characteristics.length === 0" style="color: var(--color-neutral-500); font-style: italic">No characteristics added yet.</p>
+          <div v-else style="display: flex; flex-direction: column; gap: 4px">
+            <div
+              v-for="char in characteristics"
+              :key="'prev-' + char.TOC_ID"
+              style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.06)"
+            >
+              <span style="font-weight: 600; min-width: 24px; color: var(--color-neutral-600)">{{ char.CharacteristicOrder }}.</span>
+              <span style="color: var(--color-neutral-800)">{{ char.TOC_Name }}</span>
+              <span v-if="char.Asterisk === 'Y'" style="color: #D32F2F; font-weight: 700; font-size: 14px">*</span>
+              <span style="margin-left: auto; font-size: 11px; color: var(--color-neutral-500)">{{ char.Expression_Type }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ChapterPreview>
+
+    <!-- ── Refresh Button ── -->
+    <div style="display: flex; justify-content: flex-end">
+      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
+        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
+          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
+      </Button>
+    </div>
   </div>
 </template>
 

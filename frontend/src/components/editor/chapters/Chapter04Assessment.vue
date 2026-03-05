@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Radiobutton, Input } from 'upov-ui';
+import { Radiobutton, Input, Button } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -11,9 +12,20 @@ const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
 
 const data = computed(() => store.chapters['04']);
+const refreshing = ref(false);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('04', field, value);
+}
+
+async function refreshPreview() {
+  refreshing.value = true;
+  try {
+    const res = await editorApi.open(store.tgId!);
+    store.chapters['04'] = res.chapters['04'];
+  } finally {
+    refreshing.value = false;
+  }
 }
 </script>
 
@@ -65,8 +77,6 @@ function onFieldChange(field: string, value: any) {
             @update:model-value="onFieldChange('DistinctnessAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -119,8 +129,6 @@ function onFieldChange(field: string, value: any) {
               @update:model-value="onFieldChange('PartsPlant', $event)" />
           </div>
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -136,9 +144,41 @@ function onFieldChange(field: string, value: any) {
             @update:model-value="onFieldChange('StabilityAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
+
+    <!-- ── Chapter-level Preview (end of chapter) ── -->
+    <ChapterPreview>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">4.1 Distinctness</p>
+          <p v-if="data.IsHybridParentFormula">Hybrid parent formula: <strong>{{ data.IsHybridParentFormula === 'Y' ? 'Yes' : 'No' }}</strong></p>
+          <p v-if="data.IsHybridVariety">Hybrid variety covered: <strong>{{ data.IsHybridVariety === 'Y' ? 'Yes' : 'No' }}</strong></p>
+          <div v-if="data.DistinctnessAddInfo" v-html="data.DistinctnessAddInfo"></div>
+          <em v-if="!data.IsHybridParentFormula && !data.DistinctnessAddInfo" style="color: var(--color-neutral-500)">No content yet</em>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">4.2 Uniformity</p>
+          <p v-if="data.typeOfPropagation">Propagation type: <strong>{{ data.typeOfPropagation }}</strong></p>
+          <p v-if="data.SinglePlant || data.PartsPlant">Plants: <strong>{{ data.SinglePlant }}</strong> single / <strong>{{ data.PartsPlant }}</strong> parts</p>
+          <em v-if="!data.typeOfPropagation && !data.SinglePlant" style="color: var(--color-neutral-500)">No content yet</em>
+        </div>
+        <div>
+          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">4.3 Stability</p>
+          <div v-if="data.StabilityAddInfo" v-html="data.StabilityAddInfo"></div>
+          <em v-else style="color: var(--color-neutral-500)">No content yet</em>
+        </div>
+      </div>
+    </ChapterPreview>
+
+    <!-- ── Refresh Button ── -->
+    <div style="display: flex; justify-content: flex-end">
+      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
+        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
+          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
+      </Button>
+    </div>
   </div>
 </template>
