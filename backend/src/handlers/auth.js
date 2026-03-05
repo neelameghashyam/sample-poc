@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { findByUsername } from '../repositories/user.js';
+import { findByUsername, findUserById, syncUserIdentity, createEntraIdUser } from '../repositories/user.js';
 import { getProvider } from '../utils/oauth-providers.js';
 
 /**
@@ -92,12 +92,20 @@ export const getMe = async (c) => {
       const dbUser = await findByUsername(mockUsername);
 
       if (dbUser) {
+        const needsAccessRequest = dbUser.statusCode === 'I' && (dbUser.requestStatus === 'Rejected' || !dbUser.twps);
+        const isPending = dbUser.statusCode === 'I' && dbUser.requestStatus === 'Pending';
         return c.json({
           id: dbUser.id,
           username: dbUser.userName,
           name: dbUser.fullName,
           email: dbUser.email,
           roles: dbUser.roleCode ? [dbUser.roleCode] : [],
+          statusCode: dbUser.statusCode,
+          requestStatus: dbUser.requestStatus,
+          officeCode: dbUser.officeCode,
+          twps: dbUser.twps,
+          needsAccessRequest,
+          isPending,
           isDevMode: true,
         });
       }
@@ -108,9 +116,11 @@ export const getMe = async (c) => {
         username: mockUsername,
         name: 'Dev User',
         email: `${mockUsername}@wipo.int`,
-        roles: ['ADMIN', 'LE'], // Give all roles in dev mode
+        roles: ['ADM'], // Give admin role in dev mode
         isDevMode: true,
         isNewUser: true,
+        needsAccessRequest: true,
+        isPending: false,
       });
     }
 
@@ -125,7 +135,16 @@ export const getMe = async (c) => {
     console.log(`getMe: ${identity.username} via ${providerName}`);
 
     // Look up user in database
-    const dbUser = await findByUsername(identity.username);
+    let dbUser = await findByUsername(identity.username);
+
+    if (!dbUser && providerName === 'entraid') {
+      // Auto-provision EntraID users as active admins
+      const fullName = identity.name || identity.username;
+      const email = identity.email || '';
+      const result = await createEntraIdUser({ userName: identity.username, fullName, email });
+      // Re-fetch so the response is built from DB (single source of truth)
+      dbUser = await findUserById(result.insertId);
+    }
 
     if (!dbUser) {
       return c.json({
@@ -134,26 +153,47 @@ export const getMe = async (c) => {
         name: identity.name || identity.username,
         email: identity.email,
         country: identity.country,
-        roles: providerName === 'entraid' ? ['ADMIN'] : [],
+        roles: [],
         authProvider: providerName,
         isNewUser: true,
+        needsAccessRequest: true,
+        isPending: false,
       });
     }
 
-    // EntraID users always get ADMIN role
+    // Sync SSO identity (name, email) and last login timestamp on every login
+    const ssoName = identity.name || dbUser.fullName;
+    const ssoEmail = identity.email || dbUser.email;
+    await syncUserIdentity(dbUser.id, { fullName: ssoName, email: ssoEmail });
+
+    // EntraID users always get ADM role; others use DB role
     const roles = providerName === 'entraid'
-      ? ['ADMIN']
+      ? ['ADM']
       : (dbUser.roleCode ? [dbUser.roleCode] : []);
+
+    // EntraID users bypass access request workflow
+    const needsAccessRequest = providerName === 'entraid'
+      ? false
+      : (dbUser.statusCode === 'I' && (dbUser.requestStatus === 'Rejected' || !dbUser.twps));
+    const isPending = providerName === 'entraid'
+      ? false
+      : (dbUser.statusCode === 'I' && dbUser.requestStatus === 'Pending');
 
     return c.json({
       id: dbUser.id,
       username: identity.username,
-      name: dbUser.fullName || identity.name,
-      email: dbUser.email || identity.email,
+      name: ssoName,
+      email: ssoEmail,
       country: identity.country,
       roles,
       authProvider: providerName,
       isNewUser: false,
+      statusCode: dbUser.statusCode,
+      requestStatus: dbUser.requestStatus,
+      officeCode: dbUser.officeCode,
+      twps: dbUser.twps,
+      needsAccessRequest,
+      isPending,
     });
   } catch (err) {
     console.error('Get user error:', err.response?.data || err.message);

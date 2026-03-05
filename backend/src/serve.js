@@ -6,6 +6,13 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(__dirname, '../../.env') });
 
+// Clear npm-injected proxy vars (from ~/.npmrc) so axios connects directly
+delete process.env.npm_config_proxy;
+delete process.env.npm_config_https_proxy;
+
+// Trust WIPO internal CA certificates in local dev
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import { serve } from '@hono/node-server';
 import app from './app.js';
 

@@ -1,18 +1,37 @@
-import { findAll, countAll, findById, findUsersByTgId } from '../repositories/test-guideline.js';
+import { findAll, countAll, findById, findUsersByTgId, countIeComments } from '../repositories/test-guideline.js';
+
+function stripHtml(str) {
+  return str.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&times;/g, '\u00d7').replace(/&amp;/g, '&').trim();
+}
 
 /**
  * List test guidelines
  */
 export const list = async (c) => {
   try {
+    const tab = c.req.query('tab');
     const status = c.req.query('status');
-    const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100);
-    const offset = parseInt(c.req.query('offset') || '0', 10);
+    const limitParam = c.req.query('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : null;
+    const offset = limitParam ? parseInt(c.req.query('offset') || '0', 10) : 0;
+    const sortDir = c.req.query('sortDir') || null;
+
+    const filters = {};
+    for (const key of ['name', 'reference', 'leadExpert', 'upovCodes', 'status', 'twps']) {
+      const val = c.req.query(`filter[${key}]`);
+      if (val) filters[key] = val;
+    }
 
     const [items, total] = await Promise.all([
-      findAll({ status, limit, offset }),
-      countAll(),
+      findAll({ tab, status, limit, offset, filters, sortDir }),
+      countAll(tab, filters),
     ]);
+
+    for (const item of items) {
+      item.upovCodes = item.upovCodes
+        ? item.upovCodes.split('||').map(stripHtml)
+        : [];
+    }
 
     return c.json({ items, total, limit, offset });
   } catch (err) {
@@ -38,9 +57,12 @@ export const get = async (c) => {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Test guideline not found' } }, 404);
     }
 
-    const users = await findUsersByTgId(id);
+    const [users, ieCommentCount] = await Promise.all([
+      findUsersByTgId(id),
+      countIeComments(id),
+    ]);
 
-    return c.json({ ...tg, users });
+    return c.json({ ...tg, users, ieCommentCount });
   } catch (err) {
     console.error('Get TG error:', err);
     return c.json({ error: { code: 'ERROR', message: 'Failed to get test guideline' } }, 500);

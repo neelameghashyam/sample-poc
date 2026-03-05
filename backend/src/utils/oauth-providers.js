@@ -1,8 +1,4 @@
 import axios from 'axios';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
-
-// Cache the JWKS for EntraID
-let entraidJwks = null;
 
 const forgerock = {
   name: 'forgerock',
@@ -60,10 +56,15 @@ const forgerock = {
   },
 
   getUserIdentity(userInfo) {
+    // ForgeRock's 'name' field is the username; build full name from given_name + family_name
+    const name = userInfo.given_name && userInfo.family_name
+      ? `${userInfo.family_name} ${userInfo.given_name}`
+      : userInfo.name;
+
     return {
       username: userInfo.sub,
       email: userInfo.email,
-      name: userInfo.name,
+      name,
       country: userInfo.country,
     };
   },
@@ -105,40 +106,30 @@ const entraid = {
   },
 
   async verifyToken(token) {
-    const tenantId = process.env.ENTRAID_TENANT_ID;
-    const clientId = process.env.ENTRAID_CLIENT_ID;
-
-    if (!tenantId || !clientId) {
-      throw new Error('ENTRAID_TENANT_ID and ENTRAID_CLIENT_ID must be configured');
-    }
-
-    const jwksUrl = new URL(`https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`);
-
-    if (!entraidJwks) {
-      entraidJwks = createRemoteJWKSet(jwksUrl);
-    }
-
     try {
-      const { payload } = await jwtVerify(token, entraidJwks, {
-        issuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
-        audience: clientId,
+      const response = await axios.get('https://graph.microsoft.com/v1.0/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 10000,
       });
-      return payload;
+      return response.data;
     } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('Token expired or invalid');
+      }
       throw new Error(`EntraID token validation failed: ${error.message}`);
     }
   },
 
-  getUserIdentity(claims) {
-    // Strip @wipo.int domain from preferred_username for DB lookup
-    let username = claims.preferred_username || claims.sub;
+  getUserIdentity(profile) {
+    // Strip @wipo.int domain from userPrincipalName for DB lookup
+    let username = profile.userPrincipalName || profile.mail || profile.id;
     username = username.replace(/@wipo\.int$/i, '').toUpperCase();
 
     return {
       username,
-      email: claims.email || claims.preferred_username,
-      name: claims.name,
-      country: claims.country,
+      email: profile.mail || profile.userPrincipalName,
+      name: profile.displayName,
+      country: profile.officeLocation,
     };
   },
 };
