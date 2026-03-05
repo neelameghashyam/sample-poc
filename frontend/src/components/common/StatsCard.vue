@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from 'upov-ui';
+import { Icon, Card } from 'upov-ui';
 
 interface Props {
   title: string;
@@ -16,26 +16,24 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="stats-card">
-    <div class="stats-icon" :style="{ backgroundColor: color + '20', color }">
-      <Icon :icon="icon" />
+  <Card elevation="low" padding="compact">
+    <div class="stats-inner">
+      <div class="stats-icon" :style="{ backgroundColor: color + '20', color }">
+        <Icon :icon="icon" />
+      </div>
+      <div class="stats-content">
+        <div class="stats-value">{{ value }}</div>
+        <div class="stats-title">{{ title }}</div>
+      </div>
     </div>
-    <div class="stats-content">
-      <div class="stats-value">{{ value }}</div>
-      <div class="stats-title">{{ title }}</div>
-    </div>
-  </div>
+  </Card>
 </template>
 
 <style scoped>
-.stats-card {
+.stats-inner {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: var(--color-bg-white);
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .stats-icon {

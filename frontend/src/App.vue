@@ -1,18 +1,51 @@
 <script setup lang="ts">
+import { computed, watch, nextTick } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { Modal, Button } from 'upov-ui';
 import AppHeader from '@/components/layout/AppHeader.vue';
-import AppSidebar from '@/components/layout/AppSidebar.vue';
+import { useAuthStore } from '@/stores/auth';
+
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
+const { sessionExpired } = storeToRefs(authStore);
+
+const isFullscreenPage = computed(() =>
+  ['/login', '/auth/callback'].includes(route.path),
+);
+
+// Move focus to the Login button when the modal opens (away from the X button)
+watch(sessionExpired, (expired) => {
+  if (expired) {
+    nextTick(() => {
+      document.getElementById('session-expired-login')?.focus();
+    });
+  }
+});
+
+function relogin() {
+  sessionStorage.setItem('auth_redirect', route.fullPath);
+  authStore.logout();
+  router.push('/login');
+}
 </script>
 
 <template>
-  <div class="app-container">
+  <RouterView v-if="isFullscreenPage" />
+  <div v-else class="app-container">
     <AppHeader />
-    <div class="app-main">
-      <AppSidebar />
-      <main class="app-content">
-        <RouterView />
-      </main>
-    </div>
+    <main class="app-content">
+      <RouterView />
+    </main>
   </div>
+
+  <Modal v-model:open="sessionExpired" title="Session expired" max-width="440px">
+    <p>Your session has ended. Please log in again to continue.</p>
+    <template #footer>
+      <Button id="session-expired-login" type="primary" @click="relogin">Log in</Button>
+    </template>
+  </Modal>
 </template>
 
 <style>
@@ -26,11 +59,6 @@ import AppSidebar from '@/components/layout/AppSidebar.vue';
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.app-main {
-  display: flex;
-  flex: 1;
 }
 
 .app-content {

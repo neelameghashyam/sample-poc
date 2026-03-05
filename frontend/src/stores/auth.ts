@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import axios from 'axios';
 import api from '@/services/api';
 import type { User, AuthProvider, TokenResponse } from '@/types';
+import { useConfigStore } from './config';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
@@ -9,46 +11,44 @@ export const useAuthStore = defineStore('auth', () => {
   const authProvider = ref<AuthProvider | null>(
     (localStorage.getItem('auth_provider') as AuthProvider) || null,
   );
+  const sessionExpired = ref(false);
 
   const isAuthenticated = computed(() => !!token.value);
-  const isAdmin = computed(() => user.value?.roles?.includes('ADMIN') ?? false);
+  const isAdmin = computed(() => user.value?.roles?.includes('ADM') ?? false);
+  const needsAccessRequest = computed(() => !!user.value?.isNewUser || !!user.value?.needsAccessRequest);
+  const isPendingApproval = computed(() => !!user.value?.isPending);
+  const hasAccess = computed(() => isAuthenticated.value && !needsAccessRequest.value && !isPendingApproval.value);
 
   /** Redirect to ForgeRock OAuth */
   function loginForgeRock(): void {
-    const authorizationUri = import.meta.env.VITE_OIDC_AUTHORIZATION_URI || 'https://logindev.wipo.int:443/am/oauth2/authorize';
-    const clientId = import.meta.env.VITE_OIDC_CLIENT_ID || 'upovtg';
-    const redirectUri = import.meta.env.VITE_OIDC_REDIRECT_URI || `${window.location.origin}/auth/callback`;
-    const scopes = import.meta.env.VITE_OIDC_SCOPES || 'openid email profile office address';
+    const { oidc } = useConfigStore().config!.auth;
 
     const state = btoa(JSON.stringify({ provider: 'forgerock' }));
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes,
+      client_id: oidc.clientId,
+      redirect_uri: oidc.redirectUri,
+      scope: oidc.scopes,
       state,
     });
-    window.location.href = `${authorizationUri}?${params}`;
+    window.location.href = `${oidc.authorizationUri}?${params}`;
   }
 
   /** Redirect to EntraID OAuth */
   function loginEntraID(): void {
-    const tenantId = import.meta.env.VITE_ENTRAID_TENANT_ID;
-    const clientId = import.meta.env.VITE_ENTRAID_CLIENT_ID;
-    const redirectUri = import.meta.env.VITE_ENTRAID_REDIRECT_URI || `${window.location.origin}/auth/callback`;
-    const scopes = import.meta.env.VITE_ENTRAID_SCOPES || 'openid profile email User.Read';
+    const { entraid } = useConfigStore().config!.auth;
 
     const state = btoa(JSON.stringify({ provider: 'entraid' }));
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes,
+      client_id: entraid.clientId,
+      redirect_uri: entraid.redirectUri,
+      scope: entraid.scopes,
       state,
     });
-    window.location.href = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params}`;
+    window.location.href = `https://login.microsoftonline.com/${entraid.tenantId}/oauth2/v2.0/authorize?${params}`;
   }
 
   /** Backward-compatible alias */
@@ -56,11 +56,15 @@ export const useAuthStore = defineStore('auth', () => {
     loginForgeRock();
   }
 
+  const callbackError = ref<string | null>(null);
+
   async function handleCallback(code: string, provider: AuthProvider = 'forgerock'): Promise<boolean> {
+    callbackError.value = null;
     try {
+      const config = useConfigStore().config!;
       const redirectUri = provider === 'entraid'
-        ? (import.meta.env.VITE_ENTRAID_REDIRECT_URI || `${window.location.origin}/auth/callback`)
-        : (import.meta.env.VITE_OIDC_REDIRECT_URI || `${window.location.origin}/auth/callback`);
+        ? config.auth.entraid.redirectUri
+        : config.auth.oidc.redirectUri;
 
       const response = await api.post<TokenResponse>('/api/auth/token', {
         code,
@@ -74,34 +78,49 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('auth_provider', provider);
       await fetchUser();
       return true;
-    } catch (error) {
-      console.error('Auth callback error:', error);
+    } catch (err: unknown) {
+      console.error('Auth callback error:', err);
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data;
+        const status = err.response?.status;
+        const detail = data?.error?.message || data?.message || JSON.stringify(data);
+        callbackError.value = `[${status}] ${detail}`;
+      } else if (err instanceof Error) {
+        callbackError.value = err.message;
+      } else {
+        callbackError.value = 'Unknown error';
+      }
       return false;
     }
   }
 
+  let fetchUserPromise: Promise<void> | null = null;
+
   async function fetchUser(): Promise<void> {
     if (!token.value) return;
-    try {
-      const response = await api.get<User>('/api/auth/me');
-      user.value = response.data;
-    } catch (error) {
-      console.error('Fetch user error:', error);
-      logout();
-    }
+    if (fetchUserPromise) return fetchUserPromise;
+    fetchUserPromise = api.get<User>('/api/auth/me')
+      .then((response) => { user.value = response.data; })
+      .catch((error) => { console.error('Fetch user error:', error); logout(); })
+      .finally(() => { fetchUserPromise = null; });
+    return fetchUserPromise;
+  }
+
+  function setSessionExpired(): void {
+    sessionExpired.value = true;
   }
 
   function logout(): void {
     token.value = null;
     user.value = null;
     authProvider.value = null;
+    sessionExpired.value = false;
     localStorage.removeItem('token');
     localStorage.removeItem('auth_provider');
   }
 
   /**
    * Dev login bypass - for local testing when OAuth redirect isn't configured
-   * Set VITE_DEV_BYPASS_AUTH=true in frontend .env
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function devLogin(_username = 'devuser'): Promise<boolean> {
@@ -112,7 +131,7 @@ export const useAuthStore = defineStore('auth', () => {
     return true;
   }
 
-  const isDevMode: boolean = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+  const isDevMode = computed(() => useConfigStore().config?.auth.devBypass ?? false);
 
   // Initialize: fetch user if token exists
   if (token.value) {
@@ -123,15 +142,21 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     token,
     authProvider,
+    callbackError,
     isAuthenticated,
     isAdmin,
+    needsAccessRequest,
+    isPendingApproval,
+    hasAccess,
     isDevMode,
+    sessionExpired,
     login,
     loginForgeRock,
     loginEntraID,
     devLogin,
     handleCallback,
     fetchUser,
+    setSessionExpired,
     logout,
   };
 });

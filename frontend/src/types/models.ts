@@ -1,4 +1,4 @@
-export type TGStatus = 'LED' | 'IEC' | 'LEC' | 'LES' | 'ADO' | 'STU' | 'DEL';
+export type TGStatus = 'LED' | 'IEC' | 'LEC' | 'LES' | 'ADT' | 'ABT' | 'SSD' | 'ARC' | 'STU' | 'DEL';
 
 export type AuthProvider = 'forgerock' | 'entraid';
 
@@ -12,6 +12,23 @@ export interface User {
   authProvider?: AuthProvider;
   isNewUser?: boolean;
   isDevMode?: boolean;
+  statusCode?: string;
+  requestStatus?: string;
+  officeCode?: string;
+  twps?: string;
+  needsAccessRequest?: boolean;
+  isPending?: boolean;
+}
+
+export interface PendingUser {
+  id: number;
+  userName: string;
+  fullName: string;
+  email: string;
+  officeCode: string;
+  officeName: string | null;
+  twps: string;
+  requestStatus: string;
 }
 
 export interface DashboardStats {
@@ -19,7 +36,9 @@ export interface DashboardStats {
   draft: number;
   ieComments: number;
   leChecking: number;
+  active: number;
   adopted: number;
+  archive: number;
 }
 
 export interface TestGuidelineListItem {
@@ -29,6 +48,11 @@ export interface TestGuidelineListItem {
   status: TGStatus;
   lastUpdated: string;
   leadExpert: string | null;
+  leadExpertCountry: string | null;
+  upovCodes: string[];
+  twps: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
 }
 
 export interface TestGuidelineDetail extends TestGuidelineListItem {
@@ -39,6 +63,8 @@ export interface TestGuidelineDetail extends TestGuidelineListItem {
   ieCommentsEnd: string | null;
   leCheckingStart: string | null;
   leCheckingEnd: string | null;
+  adminComments: string | null;
+  ieCommentCount: number;
   users: TgUser[];
 }
 
@@ -47,6 +73,22 @@ export interface TgUser {
   fullName: string;
   email: string;
   role: string;
+  country?: string;
+}
+
+export interface AdminUser {
+  id: number;
+  userName: string;
+  fullName: string;
+  email: string;
+  roleCode: string;
+  statusCode: string;
+  requestStatus: string;
+  officeCode: string;
+  officeName: string | null;
+  twps: string | null;
+  lastUpdated: string;
+  leTgNames: string | null;
 }
 
 export interface MenuItem {

@@ -4,11 +4,12 @@ import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Editor from '@tinymce/tinymce-vue';
 
-import ChapterSubject               from './chapters/ChapterSubject.vue';
-import ChapterMaterial              from './chapters/ChapterMaterial.vue';
-import ChapterExamination           from './chapters/ChapterExamination.vue';
-import ChapterTableOfCharacteristics from './chapters/ChapterTableOfCharacteristics.vue';
+import ChapterSubject               from './chapters/Chaptersubject.vue';
+import ChapterMaterial              from './chapters/Chaptermaterial.vue';
+import ChapterExamination           from './chapters/Chapterexamination.vue';
+import ChapterTableOfCharacteristics from './chapters/Chaptertableofcharacteristics.vue';
 
+import { useConfigStore } from '@/stores/config';
 import type { ChapterItem, RelatedLink } from './chapters/types';
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -18,7 +19,7 @@ const tgId   = route.params.id;
 console.log('TG ID:', tgId);
 
 // ── TinyMCE ───────────────────────────────────────────────────────────────────
-const tinymceApiKey = import.meta.env.VITE_TINY_API_KEY;
+const tinymceApiKey = useConfigStore().config?.tinymce.apiKey ?? '';
 
 const tinymceInit = {
   height: 300,
@@ -60,7 +61,8 @@ const tinymceInit = {
       const reader = new FileReader();
       reader.onload = function () {
         const id = 'blobid' + (new Date()).getTime();
-        const blobCache = (window as any).tinymce.activeEditor.editorUpload.blobCache;
+        const tinymceWindow = window as typeof window & { tinymce: { activeEditor: { editorUpload: { blobCache: { create: (id: string, file: File, base64: string) => { blobUri: () => string }; add: (blobInfo: unknown) => void } } } } };
+        const blobCache = tinymceWindow.tinymce.activeEditor.editorUpload.blobCache;
         const base64    = (reader.result as string).split(',')[1];
         const blobInfo  = blobCache.create(id, file, base64);
         blobCache.add(blobInfo);

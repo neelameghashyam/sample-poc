@@ -4,11 +4,20 @@ import { createUpovUi } from 'upov-ui';
 import 'upov-ui/styles';
 import App from './App.vue';
 import router from './router';
+import { useConfigStore } from './stores/config';
 
-const app = createApp(App);
+async function bootstrap() {
+  const app = createApp(App);
+  const pinia = createPinia();
 
-app.use(createPinia());
-app.use(router);
-app.use(createUpovUi());
+  app.use(pinia);
+  app.use(router);
+  app.use(createUpovUi());
 
-app.mount('#app');
+  const configStore = useConfigStore();
+  await configStore.load();
+
+  app.mount('#app');
+}
+
+bootstrap();

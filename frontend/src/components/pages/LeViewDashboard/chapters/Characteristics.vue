@@ -2,8 +2,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
+import { useConfigStore } from '@/stores/config';
 
-const tinymceApiKey = import.meta.env.VITE_TINY_API_KEY;
+const tinymceApiKey = useConfigStore().config?.tinymce.apiKey ?? '';
 
 // TinyMCE configuration for the rich explanation editor
 const tinymceInit = {

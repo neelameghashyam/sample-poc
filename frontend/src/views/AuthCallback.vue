@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import type { AuthProvider } from '@/types';
-import { Spinner, Button } from 'upov-ui';
+import { Alert, Spinner, Button, CenteredPage, Card } from 'upov-ui';
 
 const router = useRouter();
 const route = useRoute();
@@ -31,19 +31,34 @@ onMounted(async () => {
   const provider = parseProvider(route.query.state);
   const success = await authStore.handleCallback(code, provider);
   if (success) {
-    const redirect = (route.query.redirect as string) || '/dashboard';
-    router.push(redirect);
+    if (authStore.needsAccessRequest || authStore.isPendingApproval) {
+      router.push('/access-request');
+    } else {
+      const redirect = (route.query.redirect as string)
+        || sessionStorage.getItem('auth_redirect')
+        || '/dashboard';
+      sessionStorage.removeItem('auth_redirect');
+      router.push(redirect);
+    }
   } else {
-    error.value = 'Authentication failed. Please try again.';
+    error.value = authStore.callbackError || 'Authentication failed. Please try again.';
   }
 });
 </script>
 
 <template>
-  <div class="callback-page">
-    <div class="callback-card">
-      <div v-if="error" class="error">
-        <p>{{ error }}</p>
+  <CenteredPage background="var(--color-bg-light)">
+    <Card elevation="medium" padding="spacious" centered>
+      <div v-if="error">
+        <Alert variant="error" :title="error">
+          <details class="error-details">
+            <summary>Debug info</summary>
+            <pre>provider: {{ parseProvider(route.query.state) }}
+code: {{ route.query.code ? '(present)' : '(missing)' }}
+state: {{ route.query.state ? '(present)' : '(missing)' }}
+error param: {{ route.query.error || '(none)' }}</pre>
+          </details>
+        </Alert>
         <RouterLink to="/login" class="retry-link">
           <Button type="primary" size="small">Back to Login</Button>
         </RouterLink>
@@ -51,30 +66,26 @@ onMounted(async () => {
       <div v-else class="loading">
         <Spinner :diameter="48" message="Signing you in..." />
       </div>
-    </div>
-  </div>
+    </Card>
+  </CenteredPage>
 </template>
 
 <style scoped>
-.callback-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-light);
-}
-
-.callback-card {
-  background: var(--color-bg-white);
-  padding: 48px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.error p {
-  color: var(--color-danger);
+.error-details {
+  text-align: left;
   margin-bottom: 16px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.error-details pre {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--color-bg-light, #f5f5f5);
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .retry-link {

@@ -28,11 +28,16 @@ api.interceptors.request.use(
 // Response interceptor - handle errors
 api.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
+  async (error: unknown) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('auth_provider');
-      window.location.href = '/login';
+      // Don't interfere during token exchange — let the callback handle the error
+      const url = error.config?.url || '';
+      if (!url.includes('/api/auth/token')) {
+        // Dynamic import avoids circular dependency (auth.ts imports api.ts)
+        const { useAuthStore } = await import('@/stores/auth');
+        const auth = useAuthStore();
+        auth.setSessionExpired();
+      }
     }
     return Promise.reject(error);
   },

@@ -2,32 +2,51 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { Logo, Button } from 'upov-ui';
+import { Logo, Button, Spinner, CenteredPage, Card } from 'upov-ui';
+
+type LoginState = 'detecting' | 'wipo-network' | 'chooser' | 'external';
 
 const router = useRouter();
 const authStore = useAuthStore();
 
-const redirecting = ref(true);
-const cancelled = ref(false);
+const state = ref<LoginState>('detecting');
 let redirectTimer: ReturnType<typeof setTimeout>;
 
-onMounted(() => {
+async function detectWipoNetwork(): Promise<boolean> {
+  try {
+    await fetch('https://intranet.wipo.int/', {
+      mode: 'no-cors',
+      signal: AbortSignal.timeout(3000),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+onMounted(async () => {
   if (authStore.isDevMode) {
-    redirecting.value = false;
-    cancelled.value = true;
+    state.value = 'chooser';
     return;
   }
-  redirectTimer = setTimeout(() => {
-    if (redirecting.value) {
-      authStore.loginEntraID();
-    }
-  }, 1500);
+
+  const onWipoNetwork = await detectWipoNetwork();
+
+  if (onWipoNetwork) {
+    state.value = 'wipo-network';
+    redirectTimer = setTimeout(() => {
+      if (state.value === 'wipo-network') {
+        authStore.loginEntraID();
+      }
+    }, 3000);
+  } else {
+    state.value = 'external';
+  }
 });
 
 function cancelRedirect(): void {
   clearTimeout(redirectTimer);
-  redirecting.value = false;
-  cancelled.value = true;
+  state.value = 'chooser';
 }
 
 async function handleDevLogin(): Promise<void> {
@@ -37,15 +56,20 @@ async function handleDevLogin(): Promise<void> {
 </script>
 
 <template>
-  <div class="login-page">
-    <div class="login-card">
+  <CenteredPage background="linear-gradient(135deg, var(--color-primary-green-dark) 0%, var(--color-primary-green-bright) 100%)">
+    <Card elevation="high" padding="spacious" max-width="400px" centered>
       <div class="login-logo">
         <Logo size="large" />
       </div>
       <h1 class="login-title">TG Template</h1>
 
-      <!-- Redirecting state -->
-      <template v-if="redirecting">
+      <!-- Detecting network -->
+      <template v-if="state === 'detecting'">
+        <Spinner :diameter="32" message="Detecting network..." />
+      </template>
+
+      <!-- WIPO network: auto-redirect to EntraID -->
+      <template v-if="state === 'wipo-network'">
         <p class="login-subtitle">
           Redirecting to <strong>WIPO Entra ID</strong>
           <a href="#" class="cancel-link" @click.prevent="cancelRedirect">Cancel</a>
@@ -55,49 +79,39 @@ async function handleDevLogin(): Promise<void> {
         </div>
       </template>
 
-      <!-- Cancelled / chooser state -->
-      <template v-if="cancelled">
+      <!-- Chooser: both providers -->
+      <template v-if="state === 'chooser'">
         <p class="login-subtitle">Sign in with your account</p>
         <p class="idp-header">Log in with</p>
-        <Button type="primary" size="medium" class="login-btn" @click="authStore.loginEntraID">
+        <Button type="primary" size="medium" block @click="authStore.loginEntraID">
           Sign in with WIPO Entra ID
         </Button>
-        <Button type="secondary" size="medium" class="login-btn login-btn--alt" @click="authStore.loginForgeRock">
+        <Button type="secondary" size="medium" block style="margin-top: 12px" @click="authStore.loginForgeRock">
           Sign in with WIPO Account
         </Button>
       </template>
 
-      <!-- Dev mode bypass -->
-      <div v-if="authStore.isDevMode" class="dev-mode">
+      <!-- External: only ForgeRock -->
+      <template v-if="state === 'external'">
+        <p class="login-subtitle">Sign in with your account</p>
+        <Button type="primary" size="medium" block @click="authStore.loginForgeRock">
+          Sign in with WIPO Account
+        </Button>
+      </template>
+
+      <!-- Dev mode bypass (all states except detecting) -->
+      <div v-if="authStore.isDevMode && state !== 'detecting'" class="dev-mode">
         <hr class="divider" />
         <p class="dev-label">Development Mode</p>
-        <Button type="tertiary" size="medium" class="login-btn" @click="handleDevLogin">
+        <Button type="tertiary" size="medium" block @click="handleDevLogin">
           Dev Login (bypass OAuth)
         </Button>
       </div>
-    </div>
-  </div>
+    </Card>
+  </CenteredPage>
 </template>
 
 <style scoped>
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary-green-dark) 0%, var(--color-primary-green-bright) 100%);
-}
-
-.login-card {
-  background: var(--color-bg-white);
-  padding: 48px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  max-width: 400px;
-  width: 100%;
-}
-
 .login-logo {
   margin-bottom: 24px;
 }
@@ -132,7 +146,7 @@ async function handleDevLogin(): Promise<void> {
   height: 100%;
   background: var(--color-primary-green-bright, #4caf50);
   border-radius: 2px;
-  animation: progress 1.5s ease-in-out forwards;
+  animation: progress 3s ease-in-out forwards;
 }
 
 @keyframes progress {
@@ -145,18 +159,6 @@ async function handleDevLogin(): Promise<void> {
   font-weight: 600;
   color: var(--color-text-secondary);
   margin-bottom: 16px;
-}
-
-.login-btn {
-  width: 100%;
-}
-
-.login-btn :deep(.upov-btn) {
-  width: 100%;
-}
-
-.login-btn--alt {
-  margin-top: 12px;
 }
 
 .dev-mode {

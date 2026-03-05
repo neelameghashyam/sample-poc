@@ -10,8 +10,10 @@
     "lint": "eslint src/"
   },
   "dependencies": {
+    "@tinymce/tinymce-vue": "^6.3.0",
     "axios": "^1.6.0",
     "pinia": "^2.1.0",
+    "tinymce": "^8.3.2",
     "upov-ui": "file:../../../HONOPOC/DESIGNSYSTEM/upov-design-system/projects/upov-ui",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0"
