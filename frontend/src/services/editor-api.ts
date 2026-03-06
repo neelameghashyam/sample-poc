@@ -2,6 +2,7 @@ import api from './api';
 import type { OpenResponse } from '@/types/editor';
 
 const base = (id: number) => `/api/test-guidelines/${id}`;
+const docBase = (id: number) => `/api/doc-generate/${id}`;
 
 export const editorApi = {
   // Editor session
@@ -89,4 +90,10 @@ export const editorApi = {
     api.patch(`${base(id)}/chapters/10/similar-varieties/${svId}`, data).then((r) => r.data),
   deleteSimilarVariety: (id: number, svId: number) =>
     api.delete(`${base(id)}/chapters/10/similar-varieties/${svId}`).then((r) => r.data),
+
+  // Chapter preview (doc-generate)
+  previewChapter: (id: number, chapterNumber: number, lang?: string) =>
+    api
+      .get(`${docBase(id)}/chapter/${chapterNumber}`, { params: lang ? { lang } : undefined })
+      .then((r) => r.data),
 };
