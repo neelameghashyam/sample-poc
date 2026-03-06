@@ -115,7 +115,7 @@ watch(selectedLang, () => { if (hasFetched.value) fetchPreview(); });
           </svg>
         </div>
 
-        <!-- Refresh icon-only button -->
+        <!-- Refresh text button -->
         <button
           class="refresh-btn"
           :disabled="loading"
@@ -123,8 +123,9 @@ watch(selectedLang, () => { if (hasFetched.value) fetchPreview(); });
           @click="fetchPreview"
         >
           <svg
-            width="14" height="14" viewBox="0 0 14 14" fill="none"
+            width="11" height="11" viewBox="0 0 14 14" fill="none"
             :class="{ spin: loading }"
+            style="flex-shrink:0"
           >
             <path
               d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2"
@@ -132,6 +133,7 @@ watch(selectedLang, () => { if (hasFetched.value) fetchPreview(); });
               stroke-linecap="round" stroke-linejoin="round"
             />
           </svg>
+          <span>{{ loading ? 'Loading…' : 'Refresh' }}</span>
         </button>
       </div>
     </div>
@@ -256,21 +258,23 @@ watch(selectedLang, () => { if (hasFetched.value) fetchPreview(); });
   opacity: 0.65;
 }
 
-/* ── Refresh icon button ──────────────────────────────────────────────────── */
+/* ── Refresh button ──────────────────────────────────────────────────────── */
 .refresh-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 26px;
+  gap: 5px;
   height: 26px;
-  padding: 0;
+  padding: 0 10px;
   border: 1px solid rgba(173, 78, 2, 0.22);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.78);
   color: #AD4E02;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .refresh-btn:hover:not(:disabled) {
