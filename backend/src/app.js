@@ -22,6 +22,7 @@ import { submit, listPending, approve, reject, offices } from './handlers/access
 import { listUsers, getUser, updateRole, deleteUserHandler } from './handlers/admin-users.js';
 import { getConfig } from './handlers/config.js';
 import { generateDoc } from './handlers/doc-generate.js';
+import { previewChapter } from './handlers/doc-preview.js';
 import { authMiddleware } from './middleware/auth.js';
 import { editorAuthMiddleware } from './middleware/editor-auth.js';
 
@@ -53,6 +54,7 @@ app.get('/api/test-guidelines', list);
 app.get('/api/test-guidelines/:id', get);
 app.get('/api/test-guidelines/:id/open', openEdit);
 app.get('/api/test-guidelines/:id/doc-generate', generateDoc);
+app.get('/api/doc-generate/:id/chapter/:chapterNumber', previewChapter);
 
 // LE authorization — enforces LE/admin access on all mutation routes below
 app.use('/api/test-guidelines/:id/*', editorAuthMiddleware);
