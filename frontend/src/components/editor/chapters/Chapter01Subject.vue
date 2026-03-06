@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, Radiobutton } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
@@ -18,6 +18,8 @@ function onFieldChange(field: string, value: any) {
 
 function setRadio(field: string, value: 'Y' | 'N') {
   onFieldChange(field, value);
+}
+
 }
 </script>
 
@@ -126,19 +128,7 @@ function setRadio(field: string, value: 'Y' | 'N') {
     </Card>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="1">
-      <div style="display: flex; flex-direction: column; gap: 12px">
-        <div v-if="data.Sub_Add_Info">
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">1.1.2 Additional characteristics</p>
-          <div v-html="data.Sub_Add_Info"></div>
-        </div>
-        <div v-if="data.Sub_OtherInfo">
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">Other information</p>
-          <div v-html="data.Sub_OtherInfo"></div>
-        </div>
-        <em v-if="!data.Sub_Add_Info && !data.Sub_OtherInfo" style="color: var(--color-neutral-500)">No content yet</em>
-      </div>
-    </ChapterPreview>
+    <ChapterPreview :chapter-number="1" />
   </div>
 </template>
 

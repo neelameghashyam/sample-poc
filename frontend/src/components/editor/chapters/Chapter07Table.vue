@@ -89,7 +89,7 @@ async function onDrop(targetIndex: number) {
   dragIndex = -1;
 }
 
-}
+
 </script>
 
 <template>
@@ -212,27 +212,7 @@ async function onDrop(targetIndex: number) {
     </Card>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="7">
-      <div style="display: flex; flex-direction: column; gap: 14px">
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px">7.1 Characteristics summary</p>
-          <p v-if="characteristics.length === 0" style="color: var(--color-neutral-500); font-style: italic">No characteristics added yet.</p>
-          <div v-else style="display: flex; flex-direction: column; gap: 4px">
-            <div
-              v-for="char in characteristics"
-              :key="'prev-' + char.TOC_ID"
-              style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.06)"
-            >
-              <span style="font-weight: 600; min-width: 24px; color: var(--color-neutral-600)">{{ char.CharacteristicOrder }}.</span>
-              <span style="color: var(--color-neutral-800)">{{ char.TOC_Name }}</span>
-              <span v-if="char.Asterisk === 'Y'" style="color: #D32F2F; font-weight: 700; font-size: 14px">*</span>
-              <span style="margin-left: auto; font-size: 11px; color: var(--color-neutral-500)">{{ char.Expression_Type }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="7" />
   </div>
 </template>
 

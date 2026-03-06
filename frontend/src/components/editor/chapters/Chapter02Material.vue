@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Radiobutton, Button } from 'upov-ui';
+import { Radiobutton } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
@@ -82,29 +82,6 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
     </SectionAccordion>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="2">
-      <div style="display: flex; flex-direction: column; gap: 14px">
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">2.1 Form of material</p>
-          <div v-if="data.Material_Supplied" v-html="data.Material_Supplied"></div>
-          <em v-else style="color: var(--color-neutral-500)">No content yet</em>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">2.2 Minimum quantity of plant material</p>
-          <div v-if="data.Min_Plant_Material" v-html="data.Min_Plant_Material"></div>
-          <em v-else style="color: var(--color-neutral-500)">No content yet</em>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">2.3 Seed Quality Requirements</p>
-          <p v-if="data.SeedQualityReq">Selected: <strong>{{ data.SeedQualityReq }}</strong></p>
-          <em v-else style="color: var(--color-neutral-500)">No seed quality requirement selected.</em>
-        </div>
-        <div v-if="data.Material_AddInfo">
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">2.4 Additional information</p>
-          <div v-html="data.Material_AddInfo"></div>
-        </div>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="2" />
   </div>
 </template>

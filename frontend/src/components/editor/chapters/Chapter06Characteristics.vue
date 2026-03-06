@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Card, ToggleSwitch, Button } from 'upov-ui';
+import { Card, ToggleSwitch } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -83,22 +83,6 @@ function onExampleVarietyToggle(val: 'left' | 'right') {
     </Card>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="6">
-      <div style="display: flex; flex-direction: column; gap: 14px">
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">6.1 Characteristics legend</p>
-          <p v-if="data.isCharacteristicsLegend !== 'Y'" style="color: var(--color-neutral-500); font-style: italic">Legend disabled</p>
-          <div v-else-if="data.CharacteristicLegend" v-html="data.CharacteristicLegend"></div>
-          <em v-else style="color: var(--color-neutral-500)">Enabled but no content yet</em>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">6.2 Example variety text</p>
-          <p v-if="data.isExampleVarietyText !== 'Y'" style="color: var(--color-neutral-500); font-style: italic">Example variety text disabled</p>
-          <div v-else-if="data.ExampleVarietyText" v-html="data.ExampleVarietyText"></div>
-          <em v-else style="color: var(--color-neutral-500)">Enabled but no content yet</em>
-        </div>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="6" />
   </div>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Card, Button } from 'upov-ui';
+import { Card } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
@@ -38,13 +38,6 @@ function onContentChange(value: string) {
     </Card>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="5">
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">5.1 Grouping summary</p>
-        <div v-if="data.GroupingSummaryText" v-html="data.GroupingSummaryText"></div>
-        <em v-else style="color: var(--color-neutral-500)">No content yet</em>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="5" />
   </div>
 </template>

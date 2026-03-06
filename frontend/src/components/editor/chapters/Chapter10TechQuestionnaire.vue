@@ -32,6 +32,11 @@ function onFieldChange(field: string, value: any) {
   store.autosave('10', field, value);
 }
 
+// ── Refresh ch10 from server ─────────────────────────────────────────────────
+async function refreshCh10() {
+  const res = await editorApi.open(store.tgId!);
+  store.chapters['10'] = res.chapters['10'];
+}
 
 }
 
@@ -350,48 +355,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="10">
-      <div style="display: flex; flex-direction: column; gap: 14px">
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.1 Subjects</p>
-          <p v-if="subjects.length === 0" style="color: var(--color-neutral-500); font-style: italic">No subjects added.</p>
-          <div v-else style="display: flex; flex-direction: column; gap: 2px">
-            <div v-for="sub in subjects" :key="sub.TqSubjectID" style="font-size: 13px">
-              <strong>{{ sub.TqBotanicalName }}</strong>
-              <span v-if="sub.TqCommonName"> ({{ sub.TqCommonName }})</span>
-            </div>
-          </div>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.2 Breeding Scheme</p>
-          <p v-if="breedingSchemes.length === 0" style="color: var(--color-neutral-500); font-style: italic">No breeding schemes selected.</p>
-          <div v-else style="display: flex; flex-wrap: wrap; gap: 4px">
-            <span v-for="bs in breedingSchemes" :key="bs.TqBreedingSchemeID"
-              style="background: rgba(184,180,164,0.25); border-radius: 4px; padding: 2px 8px; font-size: 12px">
-              {{ bsLabel(bs.TqBreedingSchemeMethodID) }}
-            </span>
-          </div>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.3 Propagation Methods</p>
-          <p v-if="propagationMethods.length === 0" style="color: var(--color-neutral-500); font-style: italic">No propagation methods selected.</p>
-          <div v-else style="display: flex; flex-wrap: wrap; gap: 4px">
-            <span v-for="pm in propagationMethods" :key="pm.TqPropagationMethodID"
-              style="background: rgba(184,180,164,0.25); border-radius: 4px; padding: 2px 8px; font-size: 12px">
-              {{ pmLabel(pm.TqVarietyPropagationMethodID) }}
-            </span>
-          </div>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.4 TQ Characteristics</p>
-          <p v-if="tqChars.length === 0" style="color: var(--color-neutral-500); font-style: italic">No TQ characteristics selected.</p>
-          <div v-else style="display: flex; flex-direction: column; gap: 2px">
-            <div v-for="ch in tqChars" :key="ch.TQ_CharacteristicsID" style="font-size: 13px">{{ ch.SequenceNumber }}. {{ ch.Name }}</div>
-          </div>
-        </div>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="10" />
   </div>
 </template>
 

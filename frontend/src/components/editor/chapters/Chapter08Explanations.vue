@@ -28,7 +28,10 @@ const charsWithoutExpl = computed(() =>
   characteristics.value.filter((c: any) => !explByTocId.value[c.TOC_ID]),
 );
 
-
+// ── Refresh ──────────────────────────────────────────────────────────────────
+async function refreshExplanations() {
+  const res = await editorApi.open(store.tgId!);
+  store.chapters['08'] = res.chapters['08'];
 }
 
 // ── Add explanation ──────────────────────────────────────────────────────────
@@ -124,21 +127,6 @@ function charName(tocId: number): string {
     </template>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="8">
-      <div style="display: flex; flex-direction: column; gap: 12px">
-        <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.4px">8. Explanations</p>
-        <p v-if="explanations.length === 0" style="color: var(--color-neutral-500); font-style: italic">No explanations added yet.</p>
-        <div
-          v-for="expl in explanations"
-          :key="'prev-' + expl.Explanation_ID"
-          style="border-bottom: 1px solid rgba(0,0,0,0.07); padding-bottom: 10px"
-        >
-          <p style="font-size: 13px; font-weight: 600; color: var(--color-neutral-700); margin-bottom: 4px">Ad. {{ charName(expl.TOC_ID) }}</p>
-          <div v-if="expl.Explaination_Text" v-html="expl.Explaination_Text" style="font-size: 13px"></div>
-          <em v-else style="color: var(--color-neutral-500); font-size: 13px">No explanation text yet</em>
-        </div>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="8" />
   </div>
 </template>

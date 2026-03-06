@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Radiobutton, Input, Button } from 'upov-ui';
+import { Radiobutton, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
@@ -138,28 +138,6 @@ function onFieldChange(field: string, value: any) {
     </SectionAccordion>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="4">
-      <div style="display: flex; flex-direction: column; gap: 14px">
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">4.1 Distinctness</p>
-          <p v-if="data.IsHybridParentFormula">Hybrid parent formula: <strong>{{ data.IsHybridParentFormula === 'Y' ? 'Yes' : 'No' }}</strong></p>
-          <p v-if="data.IsHybridVariety">Hybrid variety covered: <strong>{{ data.IsHybridVariety === 'Y' ? 'Yes' : 'No' }}</strong></p>
-          <div v-if="data.DistinctnessAddInfo" v-html="data.DistinctnessAddInfo"></div>
-          <em v-if="!data.IsHybridParentFormula && !data.DistinctnessAddInfo" style="color: var(--color-neutral-500)">No content yet</em>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">4.2 Uniformity</p>
-          <p v-if="data.typeOfPropagation">Propagation type: <strong>{{ data.typeOfPropagation }}</strong></p>
-          <p v-if="data.SinglePlant || data.PartsPlant">Plants: <strong>{{ data.SinglePlant }}</strong> single / <strong>{{ data.PartsPlant }}</strong> parts</p>
-          <em v-if="!data.typeOfPropagation && !data.SinglePlant" style="color: var(--color-neutral-500)">No content yet</em>
-        </div>
-        <div>
-          <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">4.3 Stability</p>
-          <div v-if="data.StabilityAddInfo" v-html="data.StabilityAddInfo"></div>
-          <em v-else style="color: var(--color-neutral-500)">No content yet</em>
-        </div>
-      </div>
-    </ChapterPreview>
-
+    <ChapterPreview :chapter-number="4" />
   </div>
 </template>
