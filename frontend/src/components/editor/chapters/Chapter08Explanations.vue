@@ -4,7 +4,6 @@ import Editor from '@tinymce/tinymce-vue';
 import { Button, Card, Select } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
-import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import type { Explanation } from '@/types/editor';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -14,7 +13,6 @@ const { apiKey, init: tinymceInit } = useTinymce({ height: 250 });
 
 const explanations = computed<Explanation[]>(() => store.chapters['08']?.explanations ?? []);
 const characteristics = computed(() => store.chapters['07']?.characteristics ?? []);
-const refreshing = ref(false);
 
 // Map TOC_ID → explanation for quick lookup
 const explByTocId = computed(() => {
@@ -30,19 +28,7 @@ const charsWithoutExpl = computed(() =>
   characteristics.value.filter((c: any) => !explByTocId.value[c.TOC_ID]),
 );
 
-// ── Refresh ──────────────────────────────────────────────────────────────────
-async function refreshExplanations() {
-  const res = await editorApi.open(store.tgId!);
-  store.chapters['08'] = res.chapters['08'];
-}
 
-async function refreshPreview() {
-  refreshing.value = true;
-  try {
-    await refreshExplanations();
-  } finally {
-    refreshing.value = false;
-  }
 }
 
 // ── Add explanation ──────────────────────────────────────────────────────────
@@ -138,7 +124,7 @@ function charName(tocId: number): string {
     </template>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview>
+    <ChapterPreview :chapter-number="8">
       <div style="display: flex; flex-direction: column; gap: 12px">
         <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.4px">8. Explanations</p>
         <p v-if="explanations.length === 0" style="color: var(--color-neutral-500); font-style: italic">No explanations added yet.</p>
@@ -154,14 +140,5 @@ function charName(tocId: number): string {
       </div>
     </ChapterPreview>
 
-    <!-- ── Refresh Button ── -->
-    <div style="display: flex; justify-content: flex-end">
-      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
-        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
-          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
-      </Button>
-    </div>
   </div>
 </template>

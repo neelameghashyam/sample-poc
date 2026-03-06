@@ -3,7 +3,6 @@ import { ref, computed } from 'vue';
 import { Button, Select, Chip, RadioGroup, RadioOption, Input, Textarea, Table } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
-import { editorApi } from '@/services/editor-api';
 import SectionAccordion from '../shared/SectionAccordion.vue';
 import ChapterPreview from '../shared/ChapterPreview.vue';
 import type {
@@ -20,7 +19,6 @@ const subjects = computed<TqSubject[]>(() => data.value?.subjects ?? []);
 const breedingSchemes = computed<TqBreedingScheme[]>(() => data.value?.breedingSchemes ?? []);
 const propagationMethods = computed<TqPropagationMethod[]>(() => data.value?.propagationMethods ?? []);
 const tqChars = computed<TqCharacteristic[]>(() => data.value?.characteristics ?? []);
-const refreshing = ref(false);
 
 // Available chars from ch07 for adding to TQ5
 const ch07Chars = computed(() => store.chapters['07']?.characteristics ?? []);
@@ -34,19 +32,7 @@ function onFieldChange(field: string, value: any) {
   store.autosave('10', field, value);
 }
 
-// ── Refresh ch10 from server ─────────────────────────────────────────────────
-async function refreshCh10() {
-  const res = await editorApi.open(store.tgId!);
-  store.chapters['10'] = res.chapters['10'];
-}
 
-async function refreshPreview() {
-  refreshing.value = true;
-  try {
-    await refreshCh10();
-  } finally {
-    refreshing.value = false;
-  }
 }
 
 // ── Subjects CRUD ────────────────────────────────────────────────────────────
@@ -364,7 +350,7 @@ function pmLabel(code: string) {
     </SectionAccordion>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview>
+    <ChapterPreview :chapter-number="10">
       <div style="display: flex; flex-direction: column; gap: 14px">
         <div>
           <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">10.1 Subjects</p>
@@ -406,15 +392,6 @@ function pmLabel(code: string) {
       </div>
     </ChapterPreview>
 
-    <!-- ── Refresh Button ── -->
-    <div style="display: flex; justify-content: flex-end">
-      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
-        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
-          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
-      </Button>
-    </div>
   </div>
 </template>
 

@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Card, Radiobutton, Button } from 'upov-ui';
+import { Card, Radiobutton } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
-import { editorApi } from '@/services/editor-api';
 import AddParagraphButton from '@/components/editor/shared/AddParagraphButton.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
@@ -12,7 +11,6 @@ const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
 
 const data = computed(() => store.chapters['01']);
-const refreshing = ref(false);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('01', field, value);
@@ -20,16 +18,6 @@ function onFieldChange(field: string, value: any) {
 
 function setRadio(field: string, value: 'Y' | 'N') {
   onFieldChange(field, value);
-}
-
-async function refreshPreview() {
-  refreshing.value = true;
-  try {
-    const res = await editorApi.open(store.tgId!);
-    store.chapters['01'] = res.chapters['01'];
-  } finally {
-    refreshing.value = false;
-  }
 }
 </script>
 
@@ -138,7 +126,7 @@ async function refreshPreview() {
     </Card>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview>
+    <ChapterPreview :chapter-number="1">
       <div style="display: flex; flex-direction: column; gap: 12px">
         <div v-if="data.Sub_Add_Info">
           <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">1.1.2 Additional characteristics</p>
@@ -151,16 +139,6 @@ async function refreshPreview() {
         <em v-if="!data.Sub_Add_Info && !data.Sub_OtherInfo" style="color: var(--color-neutral-500)">No content yet</em>
       </div>
     </ChapterPreview>
-
-    <!-- ── Refresh Button ── -->
-    <div style="display: flex; justify-content: flex-end">
-      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
-        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
-          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
-      </Button>
-    </div>
   </div>
 </template>
 

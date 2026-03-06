@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue';
 import { Button, Card, Input, Table } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
-import { editorApi } from '@/services/editor-api';
 import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
@@ -10,7 +9,6 @@ const store = useEditorStore();
 
 const data = computed(() => store.chapters['07']);
 const characteristics = computed<Characteristic[]>(() => data.value?.characteristics ?? []);
-const refreshing = ref(false);
 
 // ── Search adopted ────────────────────────────────────────────────────────────
 const searchQuery = ref('');
@@ -91,14 +89,6 @@ async function onDrop(targetIndex: number) {
   dragIndex = -1;
 }
 
-// ── Refresh Preview ───────────────────────────────────────────────────────────
-async function refreshPreview() {
-  refreshing.value = true;
-  try {
-    await refreshCharacteristics();
-  } finally {
-    refreshing.value = false;
-  }
 }
 </script>
 
@@ -222,7 +212,7 @@ async function refreshPreview() {
     </Card>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview>
+    <ChapterPreview :chapter-number="7">
       <div style="display: flex; flex-direction: column; gap: 14px">
         <div>
           <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px">7.1 Characteristics summary</p>
@@ -243,15 +233,6 @@ async function refreshPreview() {
       </div>
     </ChapterPreview>
 
-    <!-- ── Refresh Button ── -->
-    <div style="display: flex; justify-content: flex-end">
-      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
-        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
-          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
-      </Button>
-    </div>
   </div>
 </template>
 

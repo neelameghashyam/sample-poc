@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Radiobutton, Button } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
-import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -12,7 +11,6 @@ const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
 
 const data = computed(() => store.chapters['02']);
-const refreshing = ref(false);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('02', field, value);
@@ -20,14 +18,6 @@ function onFieldChange(field: string, value: any) {
 
 const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
 
-async function refreshPreview() {
-  refreshing.value = true;
-  try {
-    const res = await editorApi.open(store.tgId!);
-    store.chapters['02'] = res.chapters['02'];
-  } finally {
-    refreshing.value = false;
-  }
 }
 </script>
 
@@ -92,7 +82,7 @@ async function refreshPreview() {
     </SectionAccordion>
 
     <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview>
+    <ChapterPreview :chapter-number="2">
       <div style="display: flex; flex-direction: column; gap: 14px">
         <div>
           <p style="font-size: 12px; font-weight: 600; color: var(--color-neutral-500); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px">2.1 Form of material</p>
@@ -116,14 +106,5 @@ async function refreshPreview() {
       </div>
     </ChapterPreview>
 
-    <!-- ── Refresh Button ── -->
-    <div style="display: flex; justify-content: flex-end">
-      <Button type="secondary" :disabled="refreshing" @click="refreshPreview">
-        <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right: 6px">
-          <path d="M1 7A6 6 0 0 1 12.5 4M1 7l2-2M1 7l2 2M13 7A6 6 0 0 1 1.5 10M13 7l-2 2M13 7l-2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        {{ refreshing ? 'Refreshing...' : 'Refresh Preview' }}
-      </Button>
-    </div>
   </div>
 </template>
