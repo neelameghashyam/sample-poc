@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Radiobutton, Input } from 'upov-ui';
+import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
@@ -17,8 +17,6 @@ function onFieldChange(field: string, value: any) {
 }
 
 const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
-
-}
 </script>
 
 <template>
@@ -30,59 +28,38 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         <!-- Growing cycle radio -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.1.1 Growing cycle duration</h3>
-          <div style="display: flex; flex-direction: column; gap: 12px">
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('GrowingCycle', 'Single')">
-              <Radiobutton :model-value="data.GrowingCycle === 'Single'" />
-              <span>Single growing cycle</span>
-            </span>
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('GrowingCycle', 'Two')">
-              <Radiobutton :model-value="data.GrowingCycle === 'Two'" />
-              <span>Two independent growing cycles</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.GrowingCycle" direction="vertical"
+            @update:model-value="onFieldChange('GrowingCycle', $event)">
+            <RadioOption value="Single" label="Single growing cycle" />
+            <RadioOption value="Two" label="Two independent growing cycles" />
+          </RadioGroup>
 
           <!-- Sub-options for Two cycles -->
-          <div v-if="data.GrowingCycle === 'Two'" style="display: flex; flex-direction: column; gap: 12px; padding-left: 32px">
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('PlantingForm', 'from two separate plantings')">
-              <Radiobutton :model-value="data.PlantingForm === 'from two separate plantings'" />
-              <span>Two separate plantings</span>
-            </span>
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('PlantingForm', 'from a single planting')">
-              <Radiobutton :model-value="data.PlantingForm === 'from a single planting'" />
-              <span>From a single planting</span>
-            </span>
-          </div>
+          <RadioGroup v-if="data.GrowingCycle === 'Two'" :model-value="data.PlantingForm"
+            direction="vertical" style="padding-left: 32px"
+            @update:model-value="onFieldChange('PlantingForm', $event)">
+            <RadioOption value="from two separate plantings" label="Two separate plantings" />
+            <RadioOption value="from a single planting" label="From a single planting" />
+          </RadioGroup>
         </div>
 
         <!-- Fruit crop -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.1.3 Fruit crop</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Is a satisfactory crop of fruit required?</p>
-          <div style="display: flex; align-items: center; gap: 24px">
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('IsFruitCrop', 'Y')">
-              <Radiobutton :model-value="data.IsFruitCrop === 'Y'" />
-              <span>Yes</span>
-            </span>
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('IsFruitCrop', 'N')">
-              <Radiobutton :model-value="data.IsFruitCrop === 'N'" />
-              <span>No</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.IsFruitCrop" direction="horizontal"
+            @update:model-value="onFieldChange('IsFruitCrop', $event)">
+            <RadioOption value="Y" label="Yes" />
+            <RadioOption value="N" label="No" />
+          </RadioGroup>
 
-          <div v-if="data.IsFruitCrop === 'Y'" style="display: flex; flex-direction: column; gap: 12px; padding-left: 32px">
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('FruitDormantPeriod', 'Defined')">
-              <Radiobutton :model-value="data.FruitDormantPeriod === 'Defined'" />
-              <span>Clearly defined dormant period</span>
-            </span>
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('FruitDormantPeriod', 'NotDefined')">
-              <Radiobutton :model-value="data.FruitDormantPeriod === 'NotDefined'" />
-              <span>No clearly defined dormant period</span>
-            </span>
-            <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('FruitDormantPeriod', 'Evergreen')">
-              <Radiobutton :model-value="data.FruitDormantPeriod === 'Evergreen'" />
-              <span>Evergreen species with indeterminate growth</span>
-            </span>
-          </div>
+          <RadioGroup v-if="data.IsFruitCrop === 'Y'" :model-value="data.FruitDormantPeriod"
+            direction="vertical" style="padding-left: 32px"
+            @update:model-value="onFieldChange('FruitDormantPeriod', $event)">
+            <RadioOption value="Defined" label="Clearly defined dormant period" />
+            <RadioOption value="NotDefined" label="No clearly defined dormant period" />
+            <RadioOption value="Evergreen" label="Evergreen species with indeterminate growth" />
+          </RadioGroup>
         </div>
 
         <!-- Additional growing cycle info -->
@@ -95,6 +72,8 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('GrowingCycleAddInfo', $event)"
           />
         </div>
+
+        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -102,6 +81,9 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
     <SectionAccordion number="3.2" title="Testing Place">
       <div style="display: flex; flex-direction: column; gap: 16px">
         <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.2.1 Standard items are configured by default</h3>
+        <ChapterPreview>
+          <p>3.2.1 Tests are normally conducted at one place. In the case of tests conducted at more than one place, guidance is provided in TGP/9 "Examining Distinctness".</p>
+        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -112,48 +94,33 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.3.1 Development stages</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Indicate if there are stages of development in the Table of Characteristics</p>
-          <div style="display: flex; align-items: center; gap: 24px">
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('Devlopmentstage', 'Y')">
-              <Radiobutton :model-value="data.Devlopmentstage === 'Y'" />
-              <span>Yes</span>
-            </span>
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('Devlopmentstage', 'N')">
-              <Radiobutton :model-value="data.Devlopmentstage === 'N'" />
-              <span>No</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.Devlopmentstage" direction="horizontal"
+            @update:model-value="onFieldChange('Devlopmentstage', $event)">
+            <RadioOption value="Y" label="Yes" />
+            <RadioOption value="N" label="No" />
+          </RadioGroup>
         </div>
 
         <!-- 3.3.2 Different plots -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.3.2 Plot types</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Are there different types of plots for observation?</p>
-          <div style="display: flex; align-items: center; gap: 24px">
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('DifferentPlotsForObservation', 'Y')">
-              <Radiobutton :model-value="data.DifferentPlotsForObservation === 'Y'" />
-              <span>Yes</span>
-            </span>
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('DifferentPlotsForObservation', 'N')">
-              <Radiobutton :model-value="data.DifferentPlotsForObservation === 'N'" />
-              <span>No</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.DifferentPlotsForObservation" direction="horizontal"
+            @update:model-value="onFieldChange('DifferentPlotsForObservation', $event)">
+            <RadioOption value="Y" label="Yes" />
+            <RadioOption value="N" label="No" />
+          </RadioGroup>
         </div>
 
         <!-- 3.3.3 Eye color observation -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.3.3 Color observation</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Indicate if the observation of color by eye applies</p>
-          <div style="display: flex; align-items: center; gap: 24px">
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('EyeColorObservation', 'Y')">
-              <Radiobutton :model-value="data.EyeColorObservation === 'Y'" />
-              <span>Yes</span>
-            </span>
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('EyeColorObservation', 'N')">
-              <Radiobutton :model-value="data.EyeColorObservation === 'N'" />
-              <span>No</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.EyeColorObservation" direction="horizontal"
+            @update:model-value="onFieldChange('EyeColorObservation', $event)">
+            <RadioOption value="Y" label="Yes" />
+            <RadioOption value="N" label="No" />
+          </RadioGroup>
         </div>
 
         <!-- Additional conditions info -->
@@ -166,6 +133,8 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('ConditionAddInfo', $event)"
           />
         </div>
+
+        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -176,60 +145,39 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.4.1 Propagation methods</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Is there more than one method of propagation? <span style="color: #D32F2F; margin-left: 2px">*</span></p>
-          <div style="display: flex; align-items: center; gap: 24px">
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('IsOneMethodOfPropogation', 'Y')">
-              <Radiobutton :model-value="data.IsOneMethodOfPropogation === 'Y'" />
-              <span>Yes</span>
-            </span>
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('IsOneMethodOfPropogation', 'N')">
-              <Radiobutton :model-value="data.IsOneMethodOfPropogation === 'N'" />
-              <span>No</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.IsOneMethodOfPropogation" direction="horizontal"
+            @update:model-value="onFieldChange('IsOneMethodOfPropogation', $event)">
+            <RadioOption value="Y" label="Yes" />
+            <RadioOption value="N" label="No" />
+          </RadioGroup>
         </div>
 
         <!-- 3.4.2 Plot design -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.4.2 Plot design</h3>
-          <div style="display: flex; flex-direction: column; gap: 12px">
-            <span
-              v-for="opt in plotDesigns"
-              :key="opt.code"
-              style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)"
-              @click="onFieldChange('PlotDesign', opt.code)"
-            >
-              <Radiobutton :model-value="data.PlotDesign === opt.code" />
-              <span>{{ opt.label }}</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.PlotDesign" direction="vertical"
+            @update:model-value="onFieldChange('PlotDesign', $event)">
+            <RadioOption v-for="opt in plotDesigns" :key="opt.code" :value="opt.code" :label="opt.label" />
+          </RadioGroup>
         </div>
 
         <!-- 3.4.3 Plant removal -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.4.3 Plant removal</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Is it necessary to state that the design should allow plant removal without prejudice to observations?</p>
-          <div style="display: flex; align-items: center; gap: 24px">
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('PlantRemoval', 'Y')">
-              <Radiobutton :model-value="data.PlantRemoval === 'Y'" />
-              <span>Yes</span>
-            </span>
-            <span style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--color-neutral-800)" @click="onFieldChange('PlantRemoval', 'N')">
-              <Radiobutton :model-value="data.PlantRemoval === 'N'" />
-              <span>No</span>
-            </span>
-          </div>
+          <RadioGroup :model-value="data.PlantRemoval" direction="horizontal"
+            @update:model-value="onFieldChange('PlantRemoval', $event)">
+            <RadioOption value="Y" label="Yes" />
+            <RadioOption value="N" label="No" />
+          </RadioGroup>
         </div>
 
         <!-- Plant count and type inline inputs -->
         <div style="display: flex; gap: 16px; flex-wrap: wrap">
-          <div style="width: 180px">
-            <Input :model-value="data.PlantNumber || ''" placeholder="60" label="Plant number"
-              @update:model-value="onFieldChange('PlantNumber', $event)" />
-          </div>
-          <div style="width: 180px">
-            <Input :model-value="data.PlantType || ''" placeholder="trees" label="Plant type"
-              @update:model-value="onFieldChange('PlantType', $event)" />
-          </div>
+          <Input :model-value="data.PlantNumber || ''" placeholder="60" label="Plant number" size="small"
+            @update:model-value="onFieldChange('PlantNumber', $event)" />
+          <Input :model-value="data.PlantType || ''" placeholder="trees" label="Plant type" size="small"
+            @update:model-value="onFieldChange('PlantType', $event)" />
         </div>
 
         <!-- Additional test design info -->
@@ -242,6 +190,8 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('TestDesignAddInfo', $event)"
           />
         </div>
+
+        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -259,8 +209,5 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         </div>
       </div>
     </SectionAccordion>
-
-    <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="3" />
   </div>
 </template>

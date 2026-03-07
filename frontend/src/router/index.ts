@@ -33,6 +33,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAccess: true },
   },
   {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('@/views/ProfileView.vue'),
+    meta: { requiresAuth: true, requiresAccess: true },
+  },
+  {
     path: '/access-request',
     name: 'access-request',
     component: () => import('@/views/AccessRequestView.vue'),

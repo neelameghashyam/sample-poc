@@ -2,7 +2,7 @@
 import { computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { Modal, Button } from 'upov-ui';
+import { Modal, Button, ToastContainer, useToast } from 'upov-ui';
 import AppHeader from '@/components/layout/AppHeader.vue';
 import { useAuthStore } from '@/stores/auth';
 
@@ -10,10 +10,22 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const { sessionExpired } = storeToRefs(authStore);
+const toast = useToast();
 
 const isFullscreenPage = computed(() =>
   ['/login', '/auth/callback'].includes(route.path),
 );
+
+// Check for toast message after navigation (set via sessionStorage by other pages)
+router.afterEach(() => {
+  const msg = sessionStorage.getItem('toast');
+  if (msg) {
+    sessionStorage.removeItem('toast');
+    const variant = (sessionStorage.getItem('toast_variant') as 'success' | 'error') || 'success';
+    sessionStorage.removeItem('toast_variant');
+    nextTick(() => toast.show(msg, { variant }));
+  }
+});
 
 // Move focus to the Login button when the modal opens (away from the X button)
 watch(sessionExpired, (expired) => {
@@ -39,6 +51,8 @@ function relogin() {
       <RouterView />
     </main>
   </div>
+
+  <ToastContainer />
 
   <Modal v-model:open="sessionExpired" title="Session expired" max-width="440px">
     <p>Your session has ended. Please log in again to continue.</p>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Button, Card, Input, Table } from 'upov-ui';
-import { useEditorStore } from '@/stores/editor';
-import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
+import { Button, Card, Input, Table, ReorderTable } from 'upov-ui';
+import type { ReorderTableColumn, ReorderTableGroup } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
+import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
+import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
 
 const store = useEditorStore();
 
@@ -42,6 +44,8 @@ async function importAdopted(result: AdoptedSearchResult) {
     ObservationM_PlotT: result.methods,
     IsAdoptedTG: 'Y',
   });
+  // Refresh characteristics
+  const chars = await editorApi.searchAdopted(store.tgId!, '');
   await refreshCharacteristics();
   searchResults.value = searchResults.value.filter((r) => r.id !== result.id);
 }
@@ -65,31 +69,42 @@ function openEditModal(char: Characteristic) {
   showModal.value = true;
 }
 
-async function handleDelete(charId: number) {
-  await editorApi.deleteCharacteristic(store.tgId!, charId);
+async function onDelete(group: ReorderTableGroup) {
+  await editorApi.deleteCharacteristic(store.tgId!, group.id as number);
   await refreshCharacteristics();
 }
 
-// ── Drag reorder ──────────────────────────────────────────────────────────────
-let dragIndex = -1;
+// ── ReorderTable ─────────────────────────────────────────────────────────────
+const columns: ReorderTableColumn[] = [
+  { key: 'english', label: 'English' },
+  { key: 'example', label: 'Example Varieties' },
+  { key: 'notes', label: 'Notes', width: '80px', align: 'center' },
+];
 
-function onDragStart(index: number) {
-  dragIndex = index;
-}
+const groups = computed<ReorderTableGroup[]>(() =>
+  characteristics.value.map((c) => ({
+    id: c.TOC_ID,
+    badges: [c.Expression_Type, c.ObservationM_PlotT].filter(Boolean),
+    title: c.TOC_Name,
+    asterisk: c.Asterisk === 'Y',
+    rows: c.expressions.map((e) => ({
+      english: e.State_of_Expression,
+      example: e.Example_Varieties,
+      notes: e.Expression_Notes,
+    })),
+  }))
+);
 
-async function onDrop(targetIndex: number) {
-  if (dragIndex === targetIndex || dragIndex < 0) return;
-  const chars = [...characteristics.value];
-  const [moved] = chars.splice(dragIndex, 1);
-  chars.splice(targetIndex, 0, moved);
-
-  const order = chars.map((c, i) => ({ TOC_ID: c.TOC_ID, CharacteristicOrder: i + 1 }));
+async function onReorder(newGroups: ReorderTableGroup[]) {
+  const order = newGroups.map((g, i) => ({ TOC_ID: g.id as number, CharacteristicOrder: i + 1 }));
   await editorApi.reorderCharacteristics(store.tgId!, order);
   await refreshCharacteristics();
-  dragIndex = -1;
 }
 
-
+function onTitleClick(group: ReorderTableGroup) {
+  const char = characteristics.value.find((c) => c.TOC_ID === group.id);
+  if (char) openEditModal(char);
+}
 </script>
 
 <template>
@@ -141,91 +156,25 @@ async function onDrop(targetIndex: number) {
       <p v-else-if="searchDone" style="font-size: 14px; color: var(--color-neutral-500)">No results found.</p>
     </Card>
 
-    <!-- Characteristics table -->
-    <Card elevation="low">
-      <div style="display: flex; align-items: center; justify-content: space-between">
-        <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">Characteristics ({{ characteristics.length }})</h2>
-        <Button type="primary" @click="openAddModal">+ Add characteristic</Button>
+    <!-- Characteristics + Expressions -->
+    <ChapterPreview v-if="characteristics.length > 0" emptyMessage="">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+        <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">List of Characteristics ({{ characteristics.length }})</h2>
+        <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
       </div>
-
-      <Table v-if="characteristics.length > 0" class="chars-table">
-        <thead>
-          <tr>
-            <th class="col-drag"></th>
-            <th class="col-num">#</th>
-            <th class="col-ast">*</th>
-            <th>Characteristic</th>
-            <th class="col-type">Type</th>
-            <th class="col-method">Method</th>
-            <th class="col-stage">Growth Stage</th>
-            <th class="col-actions"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(char, idx) in characteristics"
-            :key="char.TOC_ID"
-            draggable="true"
-            @dragstart="onDragStart(idx)"
-            @dragover.prevent
-            @drop="onDrop(idx)"
-          >
-            <td class="col-drag">
-              <span style="font-size: 16px; color: #999; user-select: none">&#x2630;</span>
-            </td>
-            <td class="col-num">{{ char.CharacteristicOrder }}</td>
-            <td class="col-ast">{{ char.Asterisk === 'Y' ? '*' : '' }}</td>
-            <td>
-              <button class="char-link" @click="openEditModal(char)">{{ char.TOC_Name }}</button>
-            </td>
-            <td class="col-type">{{ char.Expression_Type }}</td>
-            <td class="col-method">{{ char.ObservationM_PlotT }}</td>
-            <td class="col-stage">{{ char.GROWTH_STAGES }}</td>
-            <td class="col-actions">
-              <Button type="danger" size="small" icon-left="x-lg" @click="handleDelete(char.TOC_ID)" />
-            </td>
-          </tr>
-        </tbody>
-      </Table>
-      <p v-else style="font-size: 14px; color: var(--color-neutral-500)">No characteristics added yet.</p>
-    </Card>
-
-    <!-- Expressions preview per characteristic -->
-    <Card v-if="characteristics.length > 0" elevation="low">
-      <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">States of Expression</h2>
-      <div v-for="char in characteristics" :key="'expr-' + char.TOC_ID" style="display: flex; flex-direction: column; gap: 8px">
-        <h3 style="font-size: 15px; font-weight: 600; color: var(--color-neutral-800)">{{ char.CharacteristicOrder }}. {{ char.TOC_Name }}</h3>
-        <Table v-if="char.expressions.length > 0" size="compact">
-          <thead>
-            <tr><th>Note</th><th>State</th><th>Example Varieties</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="expr in char.expressions" :key="expr.TOC_Expression_Notes_ID">
-              <td>{{ expr.Expression_Notes }}</td>
-              <td>{{ expr.State_of_Expression }}</td>
-              <td>{{ expr.Example_Varieties }}</td>
-            </tr>
-          </tbody>
-        </Table>
-        <p v-else style="font-size: 13px; color: #999">No expressions defined.</p>
-      </div>
-    </Card>
-
-    <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="7" />
+      <ReorderTable
+        :columns="columns"
+        :groups="groups"
+        :reorderable="store.canEdit"
+        :deletable="store.canEdit"
+        @update:groups="onReorder"
+        @delete="onDelete"
+        @titleClick="onTitleClick"
+      />
+    </ChapterPreview>
+    <ChapterPreview v-else emptyMessage="No characteristics added yet.">
+      <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
+    </ChapterPreview>
   </div>
 </template>
 
-<style scoped>
-.chars-table tr[draggable="true"] { cursor: grab; }
-.chars-table tr[draggable="true"]:active { cursor: grabbing; }
-.col-drag { width: 30px; }
-.col-num { width: 40px; text-align: center; }
-.col-ast { width: 30px; text-align: center; color: #D32F2F; font-weight: 700; }
-.col-type { width: 60px; }
-.col-method { width: 80px; }
-.col-stage { width: 120px; }
-.col-actions { width: 40px; }
-.char-link { background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--color-primary-green-dark); text-decoration: underline; text-decoration-color: var(--color-primary-green-light); text-decoration-thickness: 2px; text-underline-offset: 2px; text-align: left; padding: 0; }
-.char-link:hover { opacity: 0.7; }
-</style>

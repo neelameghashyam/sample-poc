@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Radiobutton } from 'upov-ui';
+import { RadioGroup, RadioOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
@@ -17,14 +17,12 @@ function onFieldChange(field: string, value: any) {
 }
 
 const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
-
-}
 </script>
 
 <template>
   <div v-if="data" style="display: flex; flex-direction: column; gap: 12px">
     <!-- 2.1 Form of material -->
-    <SectionAccordion number="2.1" title="Form of material">
+    <SectionAccordion number="2.1" title="Form of material" >
       <div style="display: flex; flex-direction: column; gap: 16px">
         <Editor
           :model-value="data.Material_Supplied || ''"
@@ -32,11 +30,14 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           :init="init"
           @update:model-value="onFieldChange('Material_Supplied', $event)"
         />
+        <ChapterPreview>
+          <div v-html="data.Material_Supplied || '<em>No content yet</em>'"></div>
+        </ChapterPreview>
       </div>
     </SectionAccordion>
 
     <!-- 2.2 Minimum quantity -->
-    <SectionAccordion number="2.2" title="Minimum quantity of plant material">
+    <SectionAccordion number="2.2" title="Minimum quantity of plant material" >
       <div style="display: flex; flex-direction: column; gap: 16px">
         <Editor
           :model-value="data.Min_Plant_Material || ''"
@@ -44,6 +45,9 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           :init="init"
           @update:model-value="onFieldChange('Min_Plant_Material', $event)"
         />
+        <ChapterPreview>
+          <div v-html="data.Min_Plant_Material || '<em>No content yet</em>'"></div>
+        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -51,21 +55,17 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
     <SectionAccordion number="2.3" title="Seed Quality Requirements" :open="true">
       <div style="display: flex; flex-direction: column; gap: 16px">
         <p style="font-size: 15px; font-weight: 400; color: var(--color-neutral-800); line-height: 19px">Please select one of the options (if applicable).</p>
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <span
-            v-for="opt in aswOptions"
-            :key="opt.code"
-            style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)"
-            @click="onFieldChange('SeedQualityReq', opt.code)"
-          >
-            <Radiobutton :model-value="data.SeedQualityReq === opt.code" />
-            <span>{{ opt.label }}</span>
-          </span>
-          <span style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 16px; color: var(--color-neutral-800)" @click="onFieldChange('SeedQualityReq', null)">
-            <Radiobutton :model-value="!data.SeedQualityReq" />
-            <span>Not applicable</span>
-          </span>
-        </div>
+        <RadioGroup :model-value="data.SeedQualityReq || ''" direction="vertical"
+          @update:model-value="onFieldChange('SeedQualityReq', $event || null)">
+          <RadioOption v-for="opt in aswOptions" :key="opt.code" :value="opt.code" :label="opt.label" />
+          <RadioOption value="" label="Not applicable" />
+        </RadioGroup>
+
+        <ChapterPreview :empty-message="!data.SeedQualityReq ? 'No seed quality requirement selected.' : undefined">
+          <template v-if="data.SeedQualityReq">
+            <p>Selected: <strong>{{ data.SeedQualityReq }}</strong></p>
+          </template>
+        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -80,8 +80,5 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
         />
       </div>
     </SectionAccordion>
-
-    <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="2" />
   </div>
 </template>

@@ -4,9 +4,9 @@ import Editor from '@tinymce/tinymce-vue';
 import { Button, Card, Select } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import type { Explanation } from '@/types/editor';
-import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init: tinymceInit } = useTinymce({ height: 250 });
@@ -125,8 +125,5 @@ function charName(tocId: number): string {
         No explanations added yet. Select a characteristic above to add an explanation.
       </p>
     </template>
-
-    <!-- ── Chapter-level Preview (end of chapter) ── -->
-    <ChapterPreview :chapter-number="8" />
   </div>
 </template>

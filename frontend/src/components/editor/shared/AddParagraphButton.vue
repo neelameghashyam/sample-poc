@@ -54,8 +54,8 @@ async function handleRemove(id: number) {
       <Button type="danger" size="small" icon-left="x-lg" @click="handleRemove(p.Sub_Add_Id)" />
     </div>
 
-    <!-- Add button -->
-    <Button type="secondary" icon-left="plus-lg" :disabled="adding" @click="handleAdd">
+    <!-- Add button (limit: 1 paragraph) -->
+    <Button v-if="store.paragraphs.length === 0" type="secondary" icon-left="plus-lg" :disabled="adding" @click="handleAdd">
       {{ adding ? 'Adding...' : 'Add Paragraph' }}
     </Button>
   </div>

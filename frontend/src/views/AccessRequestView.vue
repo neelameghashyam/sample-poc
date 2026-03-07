@@ -134,17 +134,20 @@ function handleLogout() {
       <Alert v-if="error" variant="error">{{ error }}</Alert>
 
       <form @submit.prevent="handleSubmit" class="access-form">
-        <FormField label="Username">
-          <Input :model-value="authStore.user?.username || ''" disabled />
-        </FormField>
+        <div class="field-inline">
+          <span class="field-label">Username</span>
+          <span class="field-value">{{ authStore.user?.username || '' }}</span>
+        </div>
 
-        <FormField label="Full Name">
-          <Input :model-value="authStore.user?.name || ''" disabled />
-        </FormField>
+        <div class="field-inline">
+          <span class="field-label">Full Name</span>
+          <span class="field-value">{{ authStore.user?.name || '' }}</span>
+        </div>
 
-        <FormField label="Email">
-          <Input :model-value="authStore.user?.email || ''" disabled />
-        </FormField>
+        <div class="field-inline">
+          <span class="field-label">Email</span>
+          <span class="field-value">{{ authStore.user?.email || '' }}</span>
+        </div>
 
         <FormField label="Organization/Country" required>
           <div class="office-autocomplete">
@@ -207,6 +210,23 @@ function handleLogout() {
 
 .office-autocomplete {
   position: relative;
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.field-label {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+.field-value {
+  color: var(--color-text-primary);
 }
 
 </style>

@@ -89,13 +89,4 @@ export const editorApi = {
     api.patch(`${base(id)}/chapters/10/similar-varieties/${svId}`, data).then((r) => r.data),
   deleteSimilarVariety: (id: number, svId: number) =>
     api.delete(`${base(id)}/chapters/10/similar-varieties/${svId}`).then((r) => r.data),
-
-  // ── Chapter preview (doc-generate API) ──────────────────────────────────
-  // GET /api/doc-generate/:id/chapter/:chapterNumber?lang=en|fr|de|es
-  // Returns full HTML document string (text/html) rendered by the BE.
-  previewChapter: (id: number, chapterNumber: number, lang: 'en' | 'fr' | 'de' | 'es' = 'en') =>
-    api.get<string>(`/api/doc-generate/${id}/chapter/${chapterNumber}`, {
-      params:       { lang },
-      responseType: 'text',
-    }).then((r) => r.data),
 };

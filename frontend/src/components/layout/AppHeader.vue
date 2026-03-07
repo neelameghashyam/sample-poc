@@ -71,7 +71,8 @@ const userRole = computed(() => {
     <div class="header-actions">
       <template v-if="authStore.isAuthenticated">
         <span class="user-info">
-          <span class="user-name">{{ authStore.user?.name || 'User' }}</span>
+          <RouterLink v-if="authStore.hasAccess" to="/profile" class="user-name-link">{{ authStore.user?.name || 'User' }}</RouterLink>
+          <span v-else class="user-name">{{ authStore.user?.name || 'User' }}</span>
           <StatusBadge v-if="userRole" :label="userRole.label" :variant="userRole.variant" size="small" />
         </span>
         <Button type="secondary" size="small" @click="handleLogout">Logout</Button>
@@ -150,8 +151,18 @@ const userRole = computed(() => {
   gap: 8px;
 }
 
-.user-name {
+.user-name,
+.user-name-link {
   font-size: 0.875rem;
+}
+
+.user-name-link {
+  color: white;
+  text-decoration: none;
+}
+
+.user-name-link:hover {
+  text-decoration: underline;
 }
 
 </style>
