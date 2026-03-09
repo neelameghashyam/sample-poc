@@ -5,6 +5,7 @@ import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
@@ -79,7 +80,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
     <SectionAccordion number="3.2" title="Testing Place">
       <div style="display: flex; flex-direction: column; gap: 16px">
         <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.2.1 Standard items are configured by default</h3>
-
       </div>
     </SectionAccordion>
 
@@ -204,4 +204,37 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
       </div>
     </SectionAccordion>
   </div>
+
+  <!-- Chapter-level Preview -->
+  <ChapterPreview v-if="data">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div v-if="data.GrowingCycle">
+        <strong>3.1 Growing Cycle:</strong> {{ data.GrowingCycle }}
+        <span v-if="data.PlantingForm"> — {{ data.PlantingForm }}</span>
+      </div>
+      <div v-if="data.GrowingCycleAddInfo">
+        <strong>Additional growing cycle info:</strong>
+        <div v-html="data.GrowingCycleAddInfo" style="margin-top:4px"></div>
+      </div>
+      <div v-if="data.Devlopmentstage"><strong>3.3.1 Development stages:</strong> {{ data.Devlopmentstage === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.DifferentPlotsForObservation"><strong>3.3.2 Different plots:</strong> {{ data.DifferentPlotsForObservation === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.EyeColorObservation"><strong>3.3.3 Eye color observation:</strong> {{ data.EyeColorObservation === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.ConditionAddInfo">
+        <strong>Conditions additional info:</strong>
+        <div v-html="data.ConditionAddInfo" style="margin-top:4px"></div>
+      </div>
+      <div v-if="data.IsOneMethodOfPropogation"><strong>3.4.1 More than one propagation method:</strong> {{ data.IsOneMethodOfPropogation === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.PlotDesign"><strong>3.4.2 Plot design:</strong> {{ data.PlotDesign }}</div>
+      <div v-if="data.PlantRemoval"><strong>3.4.3 Plant removal:</strong> {{ data.PlantRemoval === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.TestDesignAddInfo">
+        <strong>Test design additional info:</strong>
+        <div v-html="data.TestDesignAddInfo" style="margin-top:4px"></div>
+      </div>
+      <div v-if="data.OtherGrowingCycleInfo">
+        <strong>3.5 Additional Tests:</strong>
+        <div v-html="data.OtherGrowingCycleInfo" style="margin-top:4px"></div>
+      </div>
+      <em v-if="!data.GrowingCycle && !data.ConditionAddInfo && !data.TestDesignAddInfo && !data.OtherGrowingCycleInfo">No content yet</em>
+    </div>
+  </ChapterPreview>
 </template>

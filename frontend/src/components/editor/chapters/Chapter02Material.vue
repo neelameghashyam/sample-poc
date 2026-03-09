@@ -5,6 +5,7 @@ import { RadioGroup, RadioOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
@@ -29,6 +30,7 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           :init="init"
           @update:model-value="onFieldChange('Material_Supplied', $event)"
         />
+
       </div>
     </SectionAccordion>
 
@@ -41,6 +43,7 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           :init="init"
           @update:model-value="onFieldChange('Min_Plant_Material', $event)"
         />
+
       </div>
     </SectionAccordion>
 
@@ -53,6 +56,8 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           <RadioOption v-for="opt in aswOptions" :key="opt.code" :value="opt.code" :label="opt.label" />
           <RadioOption value="" label="Not applicable" />
         </RadioGroup>
+
+
       </div>
     </SectionAccordion>
 
@@ -68,4 +73,25 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
       </div>
     </SectionAccordion>
   </div>
+  <!-- Chapter-level Preview -->
+  <ChapterPreview v-if="data">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div v-if="data.Material_Supplied">
+        <strong>2.1 Form of material:</strong>
+        <div v-html="data.Material_Supplied" style="margin-top: 4px"></div>
+      </div>
+      <div v-if="data.Min_Plant_Material">
+        <strong>2.2 Minimum quantity:</strong>
+        <div v-html="data.Min_Plant_Material" style="margin-top: 4px"></div>
+      </div>
+      <div v-if="data.SeedQualityReq">
+        <strong>2.3 Seed Quality Requirement:</strong> {{ data.SeedQualityReq }}
+      </div>
+      <div v-if="data.Material_AddInfo">
+        <strong>2.4 Additional information:</strong>
+        <div v-html="data.Material_AddInfo" style="margin-top: 4px"></div>
+      </div>
+      <em v-if="!data.Material_Supplied && !data.Min_Plant_Material && !data.SeedQualityReq && !data.Material_AddInfo">No content yet</em>
+    </div>
+  </ChapterPreview>
 </template>

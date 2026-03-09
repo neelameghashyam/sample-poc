@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card } from 'upov-ui';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 
@@ -33,4 +34,9 @@ function onContentChange(value: string) {
 
     </div>
   </Card>
+
+  <!-- Chapter-level Preview -->
+  <ChapterPreview v-if="data">
+    <div v-html="data.GroupingSummaryText || '<em>No content yet</em>'"></div>
+  </ChapterPreview>
 </template>

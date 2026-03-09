@@ -5,6 +5,7 @@ import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
@@ -110,4 +111,25 @@ function onFieldChange(field: string, value: any) {
       </div>
     </SectionAccordion>
   </div>
+
+  <!-- Chapter-level Preview -->
+  <ChapterPreview v-if="data">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div v-if="data.IsHybridParentFormula"><strong>4.1.1 Hybrid parent formula:</strong> {{ data.IsHybridParentFormula === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.IsHybridVariety"><strong>4.1.2 Hybrid variety:</strong> {{ data.IsHybridVariety === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.DistinctnessAddInfo">
+        <strong>4.1 Additional distinctness info:</strong>
+        <div v-html="data.DistinctnessAddInfo" style="margin-top:4px"></div>
+      </div>
+      <div v-if="data.typeOfPropagation"><strong>4.2.1 Type of propagation:</strong> {{ data.typeOfPropagation }}</div>
+      <div v-if="data.IsOneMethodOfPropogation"><strong>4.2.2 More than one propagation method:</strong> {{ data.IsOneMethodOfPropogation === 'Y' ? 'Yes' : 'No' }}</div>
+      <div v-if="data.SinglePlant"><strong>Single plant count:</strong> {{ data.SinglePlant }}</div>
+      <div v-if="data.PartsPlant"><strong>Parts of plant:</strong> {{ data.PartsPlant }}</div>
+      <div v-if="data.StabilityAddInfo">
+        <strong>4.3 Stability additional info:</strong>
+        <div v-html="data.StabilityAddInfo" style="margin-top:4px"></div>
+      </div>
+      <em v-if="!data.IsHybridParentFormula && !data.typeOfPropagation && !data.StabilityAddInfo">No content yet</em>
+    </div>
+  </ChapterPreview>
 </template>

@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Button, Card, Input, Table, ReorderTable } from 'upov-ui';
 import type { ReorderTableColumn, ReorderTableGroup } from 'upov-ui';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
@@ -156,12 +157,15 @@ function onTitleClick(group: ReorderTableGroup) {
     </Card>
 
     <!-- Characteristics + Expressions -->
-    <Card v-if="characteristics.length > 0" elevation="low">
+    <div>
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
-        <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">List of Characteristics ({{ characteristics.length }})</h2>
+        <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">
+          List of Characteristics ({{ characteristics.length }})
+        </h2>
         <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
       </div>
       <ReorderTable
+        v-if="characteristics.length > 0"
         :columns="columns"
         :groups="groups"
         :reorderable="store.canEdit"
@@ -170,13 +174,26 @@ function onTitleClick(group: ReorderTableGroup) {
         @delete="onDelete"
         @titleClick="onTitleClick"
       />
-    </Card>
-    <Card v-else elevation="low">
-      <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-neutral-500)">
-        No characteristics added yet.
-      </div>
-      <Button v-if="store.canEdit" type="primary" size="small" style="margin-top: 8px" @click="openAddModal">+ Add characteristic</Button>
-    </Card>
+      <p v-else style="font-size: 14px; color: var(--color-neutral-500)">No characteristics added yet.</p>
+    </div>
   </div>
+
+  <!-- Chapter-level Preview -->
+  <ChapterPreview>
+    <div v-if="characteristics.length > 0">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+        <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">
+          List of Characteristics ({{ characteristics.length }})
+        </h2>
+      </div>
+      <ReorderTable
+        :columns="columns"
+        :groups="groups"
+        :reorderable="false"
+        :deletable="false"
+      />
+    </div>
+    <em v-else>No characteristics added yet.</em>
+  </ChapterPreview>
 </template>
 
