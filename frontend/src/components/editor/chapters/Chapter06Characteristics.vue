@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, ToggleSwitch } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 
 const store = useEditorStore();
@@ -20,6 +21,23 @@ function onLegendToggle(val: 'left' | 'right') {
 
 function onExampleVarietyToggle(val: 'left' | 'right') {
   onFieldChange('isExampleVarietyText', val === 'right' ? 'Y' : 'N');
+}
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '06', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
 }
 </script>
 

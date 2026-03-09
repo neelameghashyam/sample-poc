@@ -83,6 +83,23 @@ function charName(tocId: number): string {
   const char = characteristics.value.find((c: any) => c.TOC_ID === tocId);
   return char ? `${char.CharacteristicOrder}. ${char.TOC_Name}` : `TOC_ID ${tocId}`;
 }
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '08', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
+}
 </script>
 
 <template>

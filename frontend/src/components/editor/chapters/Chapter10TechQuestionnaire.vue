@@ -145,6 +145,23 @@ function bsLabel(code: string) {
 function pmLabel(code: string) {
   return pmTypes.value.find((m: any) => m.code === code)?.label || code;
 }
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '10', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
+}
 </script>
 
 <template>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -17,6 +18,23 @@ function onFieldChange(field: string, value: any) {
 }
 
 const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '03', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -206,8 +224,10 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
   </div>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview v-if="data">
-    <div style="display: flex; flex-direction: column; gap: 10px">
+  <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+    <div v-else-if="previewHtml" v-html="previewHtml" />
+    <div v-else><div style="display: flex; flex-direction: column; gap: 10px">
       <div v-if="data.GrowingCycle">
         <strong>3.1 Growing Cycle:</strong> {{ data.GrowingCycle }}
         <span v-if="data.PlantingForm"> — {{ data.PlantingForm }}</span>
@@ -235,6 +255,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         <div v-html="data.OtherGrowingCycleInfo" style="margin-top:4px"></div>
       </div>
       <em v-if="!data.GrowingCycle && !data.ConditionAddInfo && !data.TestDesignAddInfo && !data.OtherGrowingCycleInfo">No content yet</em>
-    </div>
+    </div></div>
   </ChapterPreview>
 </template>

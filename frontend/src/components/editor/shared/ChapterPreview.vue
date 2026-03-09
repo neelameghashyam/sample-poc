@@ -4,10 +4,13 @@ import { Icon } from 'upov-ui';
 
 defineProps<{
   emptyMessage?: string;
+  /** When true, the preview area shows a loading spinner */
+  loading?: boolean;
 }>();
 
 const emit = defineEmits<{
-  refresh: [];
+  /** Fired only when the Refresh button is clicked, carries the selected language */
+  refresh: [lang: string];
 }>();
 
 const selectedLanguage = ref('en');
@@ -20,11 +23,9 @@ const languages = [
   { value: 'zh', label: '中文' },
 ];
 
-const refreshKey = ref(0);
-
+/** Only called when the user explicitly clicks Refresh */
 function handleRefresh() {
-  refreshKey.value++;
-  emit('refresh');
+  emit('refresh', selectedLanguage.value);
 }
 </script>
 
@@ -95,6 +96,7 @@ function handleRefresh() {
         <!-- Refresh Button -->
         <button
           @click="handleRefresh"
+          :disabled="loading"
           :title="'Refresh preview'"
           style="
             display: flex;
@@ -112,23 +114,38 @@ function handleRefresh() {
             line-height: 1.4;
             white-space: nowrap;
           "
-          @mouseenter="(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(184,180,164,0.18)'; (e.currentTarget as HTMLElement).style.borderColor = '#AD4E02'; }"
+          :style="loading ? { opacity: '0.6', cursor: 'not-allowed' } : {}"
+          @mouseenter="(e) => { if (!loading) { (e.currentTarget as HTMLElement).style.background = 'rgba(184,180,164,0.18)'; (e.currentTarget as HTMLElement).style.borderColor = '#AD4E02'; } }"
           @mouseleave="(e) => { (e.currentTarget as HTMLElement).style.background = '#ffffff'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-neutral-300, #d1d5db)'; }"
         >
-          <Icon icon="arrow-clockwise" size="small" style="color: #AD4E02" />
-          <span>Refresh</span>
+          <Icon
+            icon="arrow-clockwise"
+            size="small"
+            style="color: #AD4E02"
+            :style="loading ? { animation: 'spin 1s linear infinite' } : {}"
+          />
+          <span>{{ loading ? 'Loading…' : 'Refresh' }}</span>
         </button>
       </div>
     </div>
 
     <!-- Preview Content -->
     <div style="padding: 14px 16px; font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
-      <slot>
-        <div v-if="emptyMessage" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-neutral-600, #4b5563)">
-          <Icon icon="info-circle" size="small" />
-          <span>{{ emptyMessage }}</span>
-        </div>
-      </slot>
+      <!-- Loading state -->
+      <div v-if="loading" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-neutral-500, #6b7280)">
+        <Icon icon="hourglass-split" size="small" />
+        <span>Generating preview…</span>
+      </div>
+
+      <!-- Slot for content / empty message -->
+      <template v-else>
+        <slot>
+          <div v-if="emptyMessage" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-neutral-600, #4b5563)">
+            <Icon icon="info-circle" size="small" />
+            <span>{{ emptyMessage }}</span>
+          </div>
+        </slot>
+      </template>
     </div>
 
     <!-- Divider Line at bottom -->
@@ -139,3 +156,10 @@ function handleRefresh() {
     "></div>
   </div>
 </template>
+
+<style scoped>
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+</style>

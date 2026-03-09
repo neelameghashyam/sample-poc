@@ -89,4 +89,17 @@ export const editorApi = {
     api.patch(`${base(id)}/chapters/10/similar-varieties/${svId}`, data).then((r) => r.data),
   deleteSimilarVariety: (id: number, svId: number) =>
     api.delete(`${base(id)}/chapters/10/similar-varieties/${svId}`).then((r) => r.data),
+
+  /**
+   * Proxy to Java doc-generate service.
+   * GET /api/test-guidelines/:id/chapters/:ch/preview?lang=en
+   * Returns HTML string rendered by the Java backend.
+   */
+  docPreview: (id: number, ch: string, lang: string) =>
+    api
+      .get<string>(`${base(id)}/chapters/${ch}/preview`, {
+        params: { lang },
+        responseType: 'text',
+      })
+      .then((r) => r.data),
 };

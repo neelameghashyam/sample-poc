@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, RadioGroup, RadioOption, Links } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
+import { editorApi } from '@/services/editor-api';
 import AddParagraphButton from '@/components/editor/shared/AddParagraphButton.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
@@ -12,12 +13,29 @@ const { apiKey, init } = useTinymce({ height: 200 });
 
 const data = computed(() => store.chapters['01']);
 
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
 function onFieldChange(field: string, value: any) {
   store.autosave('01', field, value);
 }
 
 function setRadio(field: string, value: 'Y' | 'N') {
   onFieldChange(field, value);
+}
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '01', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
 }
 </script>
 
@@ -39,7 +57,7 @@ function setRadio(field: string, value: 'Y' | 'N') {
         <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
           Should clarification be provided that any other species or hybrids not explicitly
           covered by these Test Guidelines should be treated according to the provisions of
-          document TGP/12 "Guidance for New Types and Species"?
+          document TGP/12 &quot;Guidance for New Types and Species&quot;?
           <span style="color: #D32F2F; margin-left: 2px">*</span>
         </p>
         <RadioGroup :model-value="data.SubjectClarificationIndicator" direction="horizontal"
@@ -92,8 +110,21 @@ function setRadio(field: string, value: 'Y' | 'N') {
   </Card>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview v-if="data">
-    <div>
+  <ChapterPreview
+    v-if="data"
+    :loading="previewLoading"
+    @refresh="handleRefresh"
+  >
+    <!-- Error state -->
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">
+      ⚠ {{ previewError }}
+    </div>
+
+    <!-- API-rendered HTML preview -->
+    <div v-else-if="previewHtml" v-html="previewHtml" />
+
+    <!-- Default local preview (shown before first Refresh click) -->
+    <div v-else>
       <div v-if="data.SubjectClarificationIndicator">
         <strong>1.1.1 Subject clarification:</strong> {{ data.SubjectClarificationIndicator === 'Y' ? 'Yes' : 'No' }}
       </div>
@@ -102,8 +133,7 @@ function setRadio(field: string, value: 'Y' | 'N') {
       </div>
       <div v-if="data.Sub_Add_Info" v-html="data.Sub_Add_Info" style="margin-top: 8px"></div>
       <div v-if="data.Sub_OtherInfo" v-html="data.Sub_OtherInfo" style="margin-top: 8px"></div>
-      <em v-if="!data.SubjectClarificationIndicator && !data.Sub_check && !data.Sub_Add_Info && !data.Sub_OtherInfo">No content yet</em>
+      <em v-if="!data.SubjectClarificationIndicator && !data.Sub_check && !data.Sub_Add_Info && !data.Sub_OtherInfo">No content yet — click Refresh to generate preview</em>
     </div>
   </ChapterPreview>
 </template>
-

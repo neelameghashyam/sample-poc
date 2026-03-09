@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -14,6 +15,23 @@ const data = computed(() => store.chapters['04']);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('04', field, value);
+}
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '04', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
 }
 </script>
 
@@ -113,8 +131,10 @@ function onFieldChange(field: string, value: any) {
   </div>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview v-if="data">
-    <div style="display: flex; flex-direction: column; gap: 10px">
+  <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+    <div v-else-if="previewHtml" v-html="previewHtml" />
+    <div v-else><div style="display: flex; flex-direction: column; gap: 10px">
       <div v-if="data.IsHybridParentFormula"><strong>4.1.1 Hybrid parent formula:</strong> {{ data.IsHybridParentFormula === 'Y' ? 'Yes' : 'No' }}</div>
       <div v-if="data.IsHybridVariety"><strong>4.1.2 Hybrid variety:</strong> {{ data.IsHybridVariety === 'Y' ? 'Yes' : 'No' }}</div>
       <div v-if="data.DistinctnessAddInfo">
@@ -130,6 +150,6 @@ function onFieldChange(field: string, value: any) {
         <div v-html="data.StabilityAddInfo" style="margin-top:4px"></div>
       </div>
       <em v-if="!data.IsHybridParentFormula && !data.typeOfPropagation && !data.StabilityAddInfo">No content yet</em>
-    </div>
+    </div></div>
   </ChapterPreview>
 </template>

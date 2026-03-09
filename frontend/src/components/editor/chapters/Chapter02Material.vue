@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { RadioGroup, RadioOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
+import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -17,6 +18,23 @@ function onFieldChange(field: string, value: any) {
 }
 
 const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '02', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -74,8 +92,10 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
     </SectionAccordion>
   </div>
   <!-- Chapter-level Preview -->
-  <ChapterPreview v-if="data">
-    <div style="display: flex; flex-direction: column; gap: 10px">
+  <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+    <div v-else-if="previewHtml" v-html="previewHtml" />
+    <div v-else><div style="display: flex; flex-direction: column; gap: 10px">
       <div v-if="data.Material_Supplied">
         <strong>2.1 Form of material:</strong>
         <div v-html="data.Material_Supplied" style="margin-top: 4px"></div>
@@ -92,6 +112,6 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
         <div v-html="data.Material_AddInfo" style="margin-top: 4px"></div>
       </div>
       <em v-if="!data.Material_Supplied && !data.Min_Plant_Material && !data.SeedQualityReq && !data.Material_AddInfo">No content yet</em>
-    </div>
+    </div></div>
   </ChapterPreview>
 </template>

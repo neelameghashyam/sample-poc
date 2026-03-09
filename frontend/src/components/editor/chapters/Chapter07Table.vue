@@ -105,6 +105,23 @@ function onTitleClick(group: ReorderTableGroup) {
   const char = characteristics.value.find((c) => c.TOC_ID === group.id);
   if (char) openEditModal(char);
 }
+
+const previewHtml = ref<string | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+async function handleRefresh(lang: string) {
+  if (!store.tgId) return;
+  previewLoading.value = true;
+  previewError.value = null;
+  try {
+    previewHtml.value = await editorApi.docPreview(store.tgId, '07', lang);
+  } catch (err: any) {
+    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
+  } finally {
+    previewLoading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -179,8 +196,10 @@ function onTitleClick(group: ReorderTableGroup) {
   </div>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview>
-    <div v-if="characteristics.length > 0">
+  <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+    <div v-else-if="previewHtml" v-html="previewHtml" />
+    <div v-else><div v-if="characteristics.length > 0">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
         <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">
           List of Characteristics ({{ characteristics.length }})
@@ -193,7 +212,7 @@ function onTitleClick(group: ReorderTableGroup) {
         :deletable="false"
       />
     </div>
-    <em v-else>No characteristics added yet.</em>
+    <em v-else>No characteristics added yet.</em></div>
   </ChapterPreview>
 </template>
 
