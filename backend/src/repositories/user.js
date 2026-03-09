@@ -231,6 +231,18 @@ export const assignUserToMatchingTgs = async (userId, twpsCsv) => {
 };
 
 /**
+ * Update a user's TWPs
+ */
+export const updateTwps = async (userId, twps) => {
+  return query(
+    `UPDATE User_Profile
+     SET TWPS = ?, User_lastupdated = NOW()
+     WHERE User_ID = ?`,
+    [twps, userId]
+  );
+};
+
+/**
  * Get all offices for autocomplete
  */
 export const findAllOffices = async () => {

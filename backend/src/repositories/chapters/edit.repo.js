@@ -290,14 +290,15 @@ export const findChapter11 = async (tgId) => {
  * with the same TG_ID. We distinguish them by Sub_Add_Id != the ch01 row.
  */
 export const findParagraphs = async (tgId) => {
-  // For now, return all rows — the frontend will match by chapter flag
-  // This will be refined when the paragraphs CRUD is implemented
+  // Return only extra paragraph rows — exclude the main ch01 row (smallest Sub_Add_Id)
   return query(
     `SELECT Sub_Add_Id, Sub_Add_Info, TG_ID
     FROM TG_Sub_Add_Info
-    WHERE TG_ID = ?
+    WHERE TG_ID = ? AND Sub_Add_Id > (
+      SELECT MIN(Sub_Add_Id) FROM TG_Sub_Add_Info WHERE TG_ID = ?
+    )
     ORDER BY Sub_Add_Id`,
-    [tgId]
+    [tgId, tgId]
   );
 };
 

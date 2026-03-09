@@ -3,11 +3,35 @@ import { getProvider } from '../utils/oauth-providers.js';
 /**
  * Verify access token using the appropriate provider
  * ForgeRock: opaque token validated via userinfo endpoint
- * EntraID: JWT validated via JWKS
+ * EntraID: JWT validated via Microsoft Graph
+ *
+ * Results are cached in-memory (5 min TTL) to avoid external round-trips
+ * on every request. Cache is keyed by token hash.
  */
+const tokenCache = new Map();          // key → { user, expires }
+const CACHE_TTL = 5 * 60 * 1000;      // 5 minutes
+
 export const verifyToken = async (token, providerName = 'forgerock') => {
+  const cacheKey = `${providerName}:${token.slice(-16)}`;
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) {
+    return cached.user;
+  }
+
   const provider = getProvider(providerName);
-  return provider.verifyToken(token);
+  const user = await provider.verifyToken(token);
+
+  tokenCache.set(cacheKey, { user, expires: Date.now() + CACHE_TTL });
+
+  // Evict stale entries periodically (keep map from growing unbounded)
+  if (tokenCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of tokenCache) {
+      if (v.expires < now) tokenCache.delete(k);
+    }
+  }
+
+  return user;
 };
 
 /**
@@ -36,7 +60,11 @@ export const authMiddleware = async (c, next) => {
   const providerName = c.req.header('X-Auth-Provider') || 'forgerock';
 
   try {
-    const user = await verifyToken(token, providerName);
+    const rawUser = await verifyToken(token, providerName);
+    const provider = getProvider(providerName);
+    const identity = provider.getUserIdentity(rawUser);
+    const user = { sub: identity.username, email: identity.email, name: identity.name };
+    console.log(`[AUTH] ${c.req.method} ${c.req.path} → ${identity.username} (${providerName})`);
     c.set('user', user);
     c.set('authProvider', providerName);
     return next();

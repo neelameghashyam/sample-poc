@@ -18,11 +18,11 @@ import { create as createExpl, update as updateExpl08, remove as removeExpl08 } 
 import { create as createParagraph, update as updateParagraph, remove as removeParagraph } from './handlers/chapters/paragraphs.js';
 import { list as listChars, create as createChar, update as updateChar, remove as removeChar, reorder as reorderChars, createExpr, updateExpr, removeExpr, searchAdoptedHandler } from './handlers/chapters/chapter-07.js';
 import { update as updateCh10, createSubjectHandler, updateSubjectHandler, removeSubjectHandler, createBsHandler, updateBsHandler, removeBsHandler, createPmHandler, updatePmHandler, removePmHandler, createCharHandler, removeCharHandler } from './handlers/chapters/chapter-10.js';
+import { docPreview } from './handlers/chapters/doc-preview.js';
 import { submit, listPending, approve, reject, offices } from './handlers/access-request.js';
 import { listUsers, getUser, updateRole, deleteUserHandler } from './handlers/admin-users.js';
+import { updateMyTwps } from './handlers/profile.js';
 import { getConfig } from './handlers/config.js';
-import { generateDoc } from './handlers/doc-generate.js';
-import { previewChapter } from './handlers/doc-preview.js';
 import { authMiddleware } from './middleware/auth.js';
 import { editorAuthMiddleware } from './middleware/editor-auth.js';
 
@@ -53,8 +53,9 @@ app.get('/api/dashboard/stats', getStats);
 app.get('/api/test-guidelines', list);
 app.get('/api/test-guidelines/:id', get);
 app.get('/api/test-guidelines/:id/open', openEdit);
-app.get('/api/test-guidelines/:id/doc-generate', generateDoc);
-app.get('/api/doc-generate/:id/chapter/:chapterNumber', previewChapter);
+
+// Chapter document preview — proxies to Java doc-generate service (read-only)
+app.get('/api/test-guidelines/:id/chapters/:ch/preview', docPreview);
 
 // LE authorization — enforces LE/admin access on all mutation routes below
 app.use('/api/test-guidelines/:id/*', editorAuthMiddleware);
@@ -102,6 +103,9 @@ app.delete('/api/test-guidelines/:id/chapters/10/characteristics/:charId', remov
 app.post('/api/test-guidelines/:id/paragraphs', createParagraph);
 app.patch('/api/test-guidelines/:id/paragraphs/:pId', updateParagraph);
 app.delete('/api/test-guidelines/:id/paragraphs/:pId', removeParagraph);
+
+// Profile routes
+app.patch('/api/profile/twps', updateMyTwps);
 
 // Access request routes
 app.post('/api/access-request', submit);
