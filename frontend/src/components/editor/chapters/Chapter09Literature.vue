@@ -31,10 +31,11 @@ function onContentChange(value: string) {
         @update:model-value="onContentChange"
       />
 
-      <!-- Preview -->
-      <ChapterPreview>
-        <div v-html="data.LiteratureReferences || '<em>No content yet</em>'"></div>
-      </ChapterPreview>
     </div>
   </Card>
+
+  <!-- Chapter-level Preview (one preview for the entire chapter) -->
+  <ChapterPreview v-if="data">
+    <div v-html="data.LiteratureReferences || '<em>No content yet</em>'"></div>
+  </ChapterPreview>
 </template>

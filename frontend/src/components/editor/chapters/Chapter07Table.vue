@@ -156,24 +156,26 @@ function onTitleClick(group: ReorderTableGroup) {
       <p v-else-if="searchDone" style="font-size: 14px; color: var(--color-neutral-500)">No results found.</p>
     </Card>
 
-    <!-- Characteristics + Expressions -->
-    <ChapterPreview v-if="characteristics.length > 0" emptyMessage="">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
-        <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">List of Characteristics ({{ characteristics.length }})</h2>
+    <!-- Chapter-level Preview (one preview for the entire chapter) -->
+    <ChapterPreview :empty-message="characteristics.length === 0 ? 'No characteristics added yet.' : undefined">
+      <template v-if="characteristics.length > 0">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+          <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">List of Characteristics ({{ characteristics.length }})</h2>
+          <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
+        </div>
+        <ReorderTable
+          :columns="columns"
+          :groups="groups"
+          :reorderable="store.canEdit"
+          :deletable="store.canEdit"
+          @update:groups="onReorder"
+          @delete="onDelete"
+          @titleClick="onTitleClick"
+        />
+      </template>
+      <template v-else>
         <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
-      </div>
-      <ReorderTable
-        :columns="columns"
-        :groups="groups"
-        :reorderable="store.canEdit"
-        :deletable="store.canEdit"
-        @update:groups="onReorder"
-        @delete="onDelete"
-        @titleClick="onTitleClick"
-      />
-    </ChapterPreview>
-    <ChapterPreview v-else emptyMessage="No characteristics added yet.">
-      <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
+      </template>
     </ChapterPreview>
   </div>
 </template>

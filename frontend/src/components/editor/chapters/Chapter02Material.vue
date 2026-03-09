@@ -30,9 +30,6 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           :init="init"
           @update:model-value="onFieldChange('Material_Supplied', $event)"
         />
-        <ChapterPreview>
-          <div v-html="data.Material_Supplied || '<em>No content yet</em>'"></div>
-        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -45,9 +42,6 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           :init="init"
           @update:model-value="onFieldChange('Min_Plant_Material', $event)"
         />
-        <ChapterPreview>
-          <div v-html="data.Min_Plant_Material || '<em>No content yet</em>'"></div>
-        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -60,12 +54,6 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           <RadioOption v-for="opt in aswOptions" :key="opt.code" :value="opt.code" :label="opt.label" />
           <RadioOption value="" label="Not applicable" />
         </RadioGroup>
-
-        <ChapterPreview :empty-message="!data.SeedQualityReq ? 'No seed quality requirement selected.' : undefined">
-          <template v-if="data.SeedQualityReq">
-            <p>Selected: <strong>{{ data.SeedQualityReq }}</strong></p>
-          </template>
-        </ChapterPreview>
       </div>
     </SectionAccordion>
 
@@ -80,5 +68,29 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
         />
       </div>
     </SectionAccordion>
+
+    <!-- Chapter-level Preview (one preview for the entire chapter) -->
+    <ChapterPreview>
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <div v-if="data.Material_Supplied">
+          <strong>2.1 Form of material:</strong>
+          <div v-html="data.Material_Supplied"></div>
+        </div>
+        <div v-if="data.Min_Plant_Material">
+          <strong>2.2 Minimum quantity:</strong>
+          <div v-html="data.Min_Plant_Material"></div>
+        </div>
+        <div v-if="data.SeedQualityReq">
+          <strong>2.3 Seed Quality Requirement:</strong> {{ data.SeedQualityReq }}
+        </div>
+        <div v-if="data.Material_AddInfo">
+          <strong>2.4 Additional information:</strong>
+          <div v-html="data.Material_AddInfo"></div>
+        </div>
+        <em v-if="!data.Material_Supplied && !data.Min_Plant_Material && !data.SeedQualityReq && !data.Material_AddInfo">
+          No content yet
+        </em>
+      </div>
+    </ChapterPreview>
   </div>
 </template>

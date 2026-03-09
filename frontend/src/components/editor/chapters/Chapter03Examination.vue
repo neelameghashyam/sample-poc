@@ -33,8 +33,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             <RadioOption value="Single" label="Single growing cycle" />
             <RadioOption value="Two" label="Two independent growing cycles" />
           </RadioGroup>
-
-          <!-- Sub-options for Two cycles -->
           <RadioGroup v-if="data.GrowingCycle === 'Two'" :model-value="data.PlantingForm"
             direction="vertical" style="padding-left: 32px"
             @update:model-value="onFieldChange('PlantingForm', $event)">
@@ -52,7 +50,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             <RadioOption value="Y" label="Yes" />
             <RadioOption value="N" label="No" />
           </RadioGroup>
-
           <RadioGroup v-if="data.IsFruitCrop === 'Y'" :model-value="data.FruitDormantPeriod"
             direction="vertical" style="padding-left: 32px"
             @update:model-value="onFieldChange('FruitDormantPeriod', $event)">
@@ -72,8 +69,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('GrowingCycleAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -81,16 +76,12 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
     <SectionAccordion number="3.2" title="Testing Place">
       <div style="display: flex; flex-direction: column; gap: 16px">
         <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.2.1 Standard items are configured by default</h3>
-        <ChapterPreview>
-          <p>3.2.1 Tests are normally conducted at one place. In the case of tests conducted at more than one place, guidance is provided in TGP/9 "Examining Distinctness".</p>
-        </ChapterPreview>
       </div>
     </SectionAccordion>
 
     <!-- 3.3 Conditions for Conducting the Examination -->
     <SectionAccordion number="3.3" title="Conditions for Conducting the Examination">
       <div style="display: flex; flex-direction: column; gap: 16px">
-        <!-- 3.3.1 Development stages -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.3.1 Development stages</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Indicate if there are stages of development in the Table of Characteristics</p>
@@ -101,7 +92,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
           </RadioGroup>
         </div>
 
-        <!-- 3.3.2 Different plots -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.3.2 Plot types</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Are there different types of plots for observation?</p>
@@ -112,7 +102,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
           </RadioGroup>
         </div>
 
-        <!-- 3.3.3 Eye color observation -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.3.3 Color observation</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Indicate if the observation of color by eye applies</p>
@@ -123,7 +112,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
           </RadioGroup>
         </div>
 
-        <!-- Additional conditions info -->
         <div style="display: flex; flex-direction: column; gap: 6px">
           <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">Additional conditions information</label>
           <Editor
@@ -133,15 +121,12 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('ConditionAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
     <!-- 3.4 Test Design -->
     <SectionAccordion number="3.4" title="Test Design">
       <div style="display: flex; flex-direction: column; gap: 16px">
-        <!-- 3.4.1 More than one propagation method -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.4.1 Propagation methods</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Is there more than one method of propagation? <span style="color: #D32F2F; margin-left: 2px">*</span></p>
@@ -152,7 +137,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
           </RadioGroup>
         </div>
 
-        <!-- 3.4.2 Plot design -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.4.2 Plot design</h3>
           <RadioGroup :model-value="data.PlotDesign" direction="vertical"
@@ -161,7 +145,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
           </RadioGroup>
         </div>
 
-        <!-- 3.4.3 Plant removal -->
         <div style="display: flex; flex-direction: column; gap: 10px">
           <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">3.4.3 Plant removal</h3>
           <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">Is it necessary to state that the design should allow plant removal without prejudice to observations?</p>
@@ -172,7 +155,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
           </RadioGroup>
         </div>
 
-        <!-- Plant count and type inline inputs -->
         <div style="display: flex; gap: 16px; flex-wrap: wrap">
           <Input :model-value="data.PlantNumber || ''" placeholder="60" label="Plant number" size="small"
             @update:model-value="onFieldChange('PlantNumber', $event)" />
@@ -180,7 +162,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('PlantType', $event)" />
         </div>
 
-        <!-- Additional test design info -->
         <div style="display: flex; flex-direction: column; gap: 6px">
           <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">Additional test design information</label>
           <Editor
@@ -190,8 +171,6 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
             @update:model-value="onFieldChange('TestDesignAddInfo', $event)"
           />
         </div>
-
-        <ChapterPreview empty-message="There is currently no information to fill in." />
       </div>
     </SectionAccordion>
 
@@ -209,5 +188,48 @@ const plotDesigns = computed(() => store.lookups?.plotDesigns ?? []);
         </div>
       </div>
     </SectionAccordion>
+
+    <!-- Chapter-level Preview (one preview for the entire chapter) -->
+    <ChapterPreview>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <!-- 3.1 -->
+        <div v-if="data.GrowingCycle || data.IsFruitCrop || data.GrowingCycleAddInfo">
+          <strong style="font-size: 13px; text-transform: uppercase; color: #AD4E02; letter-spacing: 0.5px">3.1 Growing Cycles</strong>
+          <p v-if="data.GrowingCycle"><strong>Cycle duration:</strong> {{ data.GrowingCycle }}{{ data.PlantingForm ? ' — ' + data.PlantingForm : '' }}</p>
+          <p v-if="data.IsFruitCrop"><strong>Fruit crop required:</strong> {{ data.IsFruitCrop === 'Y' ? 'Yes' : 'No' }}{{ data.FruitDormantPeriod ? ' (' + data.FruitDormantPeriod + ')' : '' }}</p>
+          <div v-if="data.GrowingCycleAddInfo" v-html="data.GrowingCycleAddInfo"></div>
+        </div>
+        <!-- 3.2 -->
+        <div>
+          <strong style="font-size: 13px; text-transform: uppercase; color: #AD4E02; letter-spacing: 0.5px">3.2 Testing Place</strong>
+          <p>3.2.1 Tests are normally conducted at one place. In the case of tests conducted at more than one place, guidance is provided in TGP/9 "Examining Distinctness".</p>
+        </div>
+        <!-- 3.3 -->
+        <div v-if="data.Devlopmentstage || data.DifferentPlotsForObservation || data.EyeColorObservation || data.ConditionAddInfo">
+          <strong style="font-size: 13px; text-transform: uppercase; color: #AD4E02; letter-spacing: 0.5px">3.3 Conditions</strong>
+          <p v-if="data.Devlopmentstage"><strong>Development stages:</strong> {{ data.Devlopmentstage === 'Y' ? 'Yes' : 'No' }}</p>
+          <p v-if="data.DifferentPlotsForObservation"><strong>Different plot types:</strong> {{ data.DifferentPlotsForObservation === 'Y' ? 'Yes' : 'No' }}</p>
+          <p v-if="data.EyeColorObservation"><strong>Eye color observation:</strong> {{ data.EyeColorObservation === 'Y' ? 'Yes' : 'No' }}</p>
+          <div v-if="data.ConditionAddInfo" v-html="data.ConditionAddInfo"></div>
+        </div>
+        <!-- 3.4 -->
+        <div v-if="data.IsOneMethodOfPropogation || data.PlotDesign || data.PlantRemoval || data.PlantNumber || data.TestDesignAddInfo">
+          <strong style="font-size: 13px; text-transform: uppercase; color: #AD4E02; letter-spacing: 0.5px">3.4 Test Design</strong>
+          <p v-if="data.IsOneMethodOfPropogation"><strong>Multiple propagation methods:</strong> {{ data.IsOneMethodOfPropogation === 'Y' ? 'Yes' : 'No' }}</p>
+          <p v-if="data.PlotDesign"><strong>Plot design:</strong> {{ data.PlotDesign }}</p>
+          <p v-if="data.PlantRemoval"><strong>Plant removal allowed:</strong> {{ data.PlantRemoval === 'Y' ? 'Yes' : 'No' }}</p>
+          <p v-if="data.PlantNumber || data.PlantType"><strong>Plants:</strong> {{ data.PlantNumber }} {{ data.PlantType }}</p>
+          <div v-if="data.TestDesignAddInfo" v-html="data.TestDesignAddInfo"></div>
+        </div>
+        <!-- 3.5 -->
+        <div v-if="data.OtherGrowingCycleInfo">
+          <strong style="font-size: 13px; text-transform: uppercase; color: #AD4E02; letter-spacing: 0.5px">3.5 Additional Tests</strong>
+          <div v-html="data.OtherGrowingCycleInfo"></div>
+        </div>
+        <em v-if="!data.GrowingCycle && !data.IsFruitCrop && !data.Devlopmentstage && !data.IsOneMethodOfPropogation && !data.OtherGrowingCycleInfo">
+          No content yet
+        </em>
+      </div>
+    </ChapterPreview>
   </div>
 </template>
