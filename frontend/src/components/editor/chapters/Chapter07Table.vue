@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue';
 import { Button, Card, Input, Table, ReorderTable } from 'upov-ui';
 import type { ReorderTableColumn, ReorderTableGroup } from 'upov-ui';
-import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
@@ -156,27 +155,28 @@ function onTitleClick(group: ReorderTableGroup) {
       <p v-else-if="searchDone" style="font-size: 14px; color: var(--color-neutral-500)">No results found.</p>
     </Card>
 
-    <!-- Chapter-level Preview (one preview for the entire chapter) -->
-    <ChapterPreview :empty-message="characteristics.length === 0 ? 'No characteristics added yet.' : undefined">
-      <template v-if="characteristics.length > 0">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
-          <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">List of Characteristics ({{ characteristics.length }})</h2>
-          <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
-        </div>
-        <ReorderTable
-          :columns="columns"
-          :groups="groups"
-          :reorderable="store.canEdit"
-          :deletable="store.canEdit"
-          @update:groups="onReorder"
-          @delete="onDelete"
-          @titleClick="onTitleClick"
-        />
-      </template>
-      <template v-else>
+    <!-- Characteristics + Expressions -->
+    <Card v-if="characteristics.length > 0" elevation="low">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+        <h2 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px">List of Characteristics ({{ characteristics.length }})</h2>
         <Button v-if="store.canEdit" type="primary" size="small" @click="openAddModal">+ Add characteristic</Button>
-      </template>
-    </ChapterPreview>
+      </div>
+      <ReorderTable
+        :columns="columns"
+        :groups="groups"
+        :reorderable="store.canEdit"
+        :deletable="store.canEdit"
+        @update:groups="onReorder"
+        @delete="onDelete"
+        @titleClick="onTitleClick"
+      />
+    </Card>
+    <Card v-else elevation="low">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-neutral-500)">
+        No characteristics added yet.
+      </div>
+      <Button v-if="store.canEdit" type="primary" size="small" style="margin-top: 8px" @click="openAddModal">+ Add characteristic</Button>
+    </Card>
   </div>
 </template>
 

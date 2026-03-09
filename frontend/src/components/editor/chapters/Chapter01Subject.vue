@@ -5,7 +5,6 @@ import { Card, RadioGroup, RadioOption, Links } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import AddParagraphButton from '@/components/editor/shared/AddParagraphButton.vue';
-import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
@@ -90,30 +89,5 @@ function setRadio(field: string, value: 'Y' | 'N') {
       <AddParagraphButton />
     </div>
   </Card>
-
-  <!-- Chapter-level Preview (one preview for the entire chapter) -->
-  <ChapterPreview v-if="data">
-    <div>
-      <p v-if="data.SubjectClarificationIndicator">
-        <strong>Subject clarification (1.1.1):</strong>
-        {{ data.SubjectClarificationIndicator === 'Y' ? 'Yes' : 'No' }}
-      </p>
-      <p v-if="data.Sub_check">
-        <strong>Additional characteristics (1.1.2):</strong>
-        {{ data.Sub_check === 'Y' ? 'Yes' : 'No' }}
-      </p>
-      <div v-if="data.Sub_Add_Info">
-        <strong>Additional information:</strong>
-        <div v-html="data.Sub_Add_Info"></div>
-      </div>
-      <div v-if="data.Sub_OtherInfo">
-        <strong>Other information:</strong>
-        <div v-html="data.Sub_OtherInfo"></div>
-      </div>
-      <em v-if="!data.SubjectClarificationIndicator && !data.Sub_check && !data.Sub_Add_Info && !data.Sub_OtherInfo">
-        No content yet
-      </em>
-    </div>
-  </ChapterPreview>
 </template>
 
