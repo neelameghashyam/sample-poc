@@ -19,6 +19,7 @@ import { create as createParagraph, update as updateParagraph, remove as removeP
 import { list as listChars, create as createChar, update as updateChar, remove as removeChar, reorder as reorderChars, createExpr, updateExpr, removeExpr, searchAdoptedHandler } from './handlers/chapters/chapter-07.js';
 import { update as updateCh10, createSubjectHandler, updateSubjectHandler, removeSubjectHandler, createBsHandler, updateBsHandler, removeBsHandler, createPmHandler, updatePmHandler, removePmHandler, createCharHandler, removeCharHandler } from './handlers/chapters/chapter-10.js';
 import { docPreview } from './handlers/chapters/doc-preview.js';
+import { docGenerate } from './handlers/doc-generate.js';
 import { submit, listPending, approve, reject, offices } from './handlers/access-request.js';
 import { listUsers, getUser, updateRole, deleteUserHandler } from './handlers/admin-users.js';
 import { updateMyTwps } from './handlers/profile.js';
@@ -56,6 +57,9 @@ app.get('/api/test-guidelines/:id/open', openEdit);
 
 // Chapter document preview — proxies to Java doc-generate service (read-only)
 app.get('/api/test-guidelines/:id/chapters/:ch/preview', docPreview);
+
+// Full document generate — proxies to Java doc-generate service (read-only)
+app.get('/api/test-guidelines/:id/doc-generate', docGenerate);
 
 // LE authorization — enforces LE/admin access on all mutation routes below
 app.use('/api/test-guidelines/:id/*', editorAuthMiddleware);

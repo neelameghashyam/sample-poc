@@ -91,7 +91,8 @@ export const editorApi = {
     api.delete(`${base(id)}/chapters/10/similar-varieties/${svId}`).then((r) => r.data),
 
   /**
-   hey analyze both BE's one has api that will generate the docs and another has api's that will have edit the things like that now i want to know that the doc is generating with the latest changes or not
+   * GET /api/test-guidelines/:id/chapters/:ch/preview?lang=en
+   * Returns HTML string rendered by the Java backend.
    */
   docPreview: (id: number, ch: string, lang: string) =>
     api
@@ -100,4 +101,20 @@ export const editorApi = {
         responseType: 'text',
       })
       .then((r) => r.data),
+
+  /**
+   * Full document generate 
+   * GET /api/test-guidelines/:id/doc-generate?lang=en
+   */
+  docGenerate: (id: number, lang: string) =>
+    api
+      .get(`${base(id)}/doc-generate`, {
+        params: { lang },
+        responseType: 'blob',
+      })
+      .then((r) => ({
+        blob: r.data as Blob,
+        contentType: (r.headers['content-type'] as string) || 'application/octet-stream',
+        contentDisposition: r.headers['content-disposition'] as string | undefined,
+      })),
 };
