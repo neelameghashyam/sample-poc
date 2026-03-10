@@ -6,14 +6,14 @@ import { editorApi } from '@/services/editor-api';
 
 const store = useEditorStore();
 
-const importLoading = ref(false);
-const importError   = ref<string | null>(null);
+const exportLoading = ref(false);
+const exportError   = ref<string | null>(null);
 
-async function handleImport() {
-  if (!store.tgId || importLoading.value) return;
+async function handleExport() {
+  if (!store.tgId || exportLoading.value) return;
 
-  importLoading.value = true;
-  importError.value   = null;
+  exportLoading.value = true;
+  exportError.value   = null;
 
   try {
     const { blob, contentType, contentDisposition } = await editorApi.docGenerate(
@@ -40,10 +40,10 @@ async function handleImport() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (err: any) {
-    importError.value =
+    exportError.value =
       err?.response?.data?.error?.message || 'Failed to generate document. Please try again.';
   } finally {
-    importLoading.value = false;
+    exportLoading.value = false;
   }
 }
 </script>
@@ -52,7 +52,7 @@ async function handleImport() {
   <div>
     <!-- Inline error message -->
     <div
-      v-if="importError"
+      v-if="exportError"
       style="
         margin: 6px 16px;
         padding: 6px 10px;
@@ -67,9 +67,9 @@ async function handleImport() {
         gap: 8px;
       "
     >
-      <span>⚠ {{ importError }}</span>
+      <span>⚠ {{ exportError }}</span>
       <button
-        @click="importError = null"
+        @click="exportError = null"
         style="background: none; border: none; cursor: pointer; color: #D32F2F; font-size: 16px; line-height: 1; padding: 0;"
       >&times;</button>
     </div>
@@ -77,11 +77,10 @@ async function handleImport() {
     <FooterAtom
       :has-previous-chapter="store.activeChapterIndex > 0"
       :has-next-chapter="store.activeChapterIndex < 10"
-      export-label="Export"
-      :import-loading="importLoading"
+      :export-label="exportLoading ? 'Exporting…' : 'Export'"
       @previous-chapter="store.goPrevious()"
       @next-chapter="store.goNext()"
-      @import="handleImport"
+      @export="handleExport"
     />
   </div>
 </template>
