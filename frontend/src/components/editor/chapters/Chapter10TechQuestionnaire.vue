@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Button, Select, Chip, RadioGroup, RadioOption, Input, Textarea, Table } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 import SectionAccordion from '../shared/SectionAccordion.vue';
@@ -146,6 +147,7 @@ function pmLabel(code: string) {
   return pmTypes.value.find((m: any) => m.code === code)?.label || code;
 }
 
+// ── Preview ──────────────────────────────────────────────────────────────────
 const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
@@ -167,11 +169,7 @@ async function handleRefresh(lang: string) {
 <template>
   <div style="display: flex; flex-direction: column; gap: 16px">
     <!-- 10.1 Subjects -->
-    <SectionAccordion
-      number="10.1"
-      title="Subjects"
-      :open="true"
-    >
+    <SectionAccordion number="10.1" title="Subjects" :open="true">
       <div style="display: flex; flex-direction: column; gap: 8px">
         <Table v-if="subjects.length > 0">
           <thead>
@@ -205,12 +203,7 @@ async function handleRefresh(lang: string) {
     </SectionAccordion>
 
     <!-- 10.2 Breeding Scheme -->
-    <SectionAccordion
-      number="10.2"
-      title="Breeding Scheme"
-
-
-    >
+    <SectionAccordion number="10.2" title="Breeding Scheme">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <label style="font-size: 13px; font-weight: 600; color: #606060">Standard breeding scheme displayed?</label>
         <RadioGroup :model-value="data?.IsStandardBreedingScheme === 'Y' ? 'Y' : 'N'" direction="horizontal"
@@ -243,12 +236,7 @@ async function handleRefresh(lang: string) {
     </SectionAccordion>
 
     <!-- 10.3 Propagation Methods -->
-    <SectionAccordion
-      number="10.3"
-      title="Propagation Methods"
-
-
-    >
+    <SectionAccordion number="10.3" title="Propagation Methods">
       <div style="display: flex; flex-direction: column; gap: 6px">
         <div v-if="propagationMethods.length > 0" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px">
           <Chip
@@ -267,12 +255,7 @@ async function handleRefresh(lang: string) {
     </SectionAccordion>
 
     <!-- 10.4 TQ Characteristics -->
-    <SectionAccordion
-      number="10.4"
-      title="Characteristics for Technical Questionnaire"
-
-
-    >
+    <SectionAccordion number="10.4" title="Characteristics for Technical Questionnaire">
       <Table v-if="tqChars.length > 0">
         <thead>
           <tr>
@@ -301,12 +284,7 @@ async function handleRefresh(lang: string) {
     </SectionAccordion>
 
     <!-- 10.5 Hybrid Varieties -->
-    <SectionAccordion
-      number="10.5"
-      title="Hybrid Varieties"
-
-
-    >
+    <SectionAccordion number="10.5" title="Hybrid Varieties">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <label style="font-size: 13px; font-weight: 600; color: #606060">Hybrid variety section included?</label>
         <RadioGroup :model-value="data?.TqHybridVariety === 'Y' ? 'Y' : 'N'" direction="horizontal"
@@ -333,12 +311,7 @@ async function handleRefresh(lang: string) {
     </SectionAccordion>
 
     <!-- 10.6 Color Image & Virus -->
-    <SectionAccordion
-      number="10.6"
-      title="Color Image & Disease Information"
-
-
-    >
+    <SectionAccordion number="10.6" title="Color Image & Disease Information">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <label style="font-size: 13px; font-weight: 600; color: #606060">Color image required?</label>
         <RadioGroup :model-value="data?.IsTqColorImage === 'Y' ? 'Y' : 'N'" direction="horizontal"
@@ -371,12 +344,7 @@ async function handleRefresh(lang: string) {
     </SectionAccordion>
 
     <!-- 10.7 Similar Varieties & Additional -->
-    <SectionAccordion
-      number="10.7"
-      title="Similar Varieties & Additional Information"
-
-
-    >
+    <SectionAccordion number="10.7" title="Similar Varieties & Additional Information">
       <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px">
         <Input :model-value="data?.DiffCharacteristic || ''" placeholder="e.g. Characteristic" label="Differentiating characteristic label"
           @update:model-value="onFieldChange('DiffCharacteristic', $event)" />
@@ -402,6 +370,26 @@ async function handleRefresh(lang: string) {
         label="Additional TQ sentence" placeholder="Additional sentence..."
         @update:model-value="onFieldChange('TqAddSentence', $event)" />
     </SectionAccordion>
+
+    <!-- Chapter-level Preview -->
+    <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
+      <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+      <div v-else-if="previewHtml" v-html="previewHtml" />
+      <div v-else>
+        <div v-if="subjects.length > 0">
+          <strong>Subjects:</strong> {{ subjects.map(s => s.TqBotanicalName || s.TqCommonName).filter(Boolean).join(', ') || '—' }}
+        </div>
+        <div v-if="breedingSchemes.length > 0" style="margin-top: 4px">
+          <strong>Breeding schemes:</strong> {{ breedingSchemes.map(b => bsLabel(b.TqBreedingSchemeMethodID)).join(', ') }}
+        </div>
+        <div v-if="propagationMethods.length > 0" style="margin-top: 4px">
+          <strong>Propagation methods:</strong> {{ propagationMethods.map(p => pmLabel(p.TqVarietyPropagationMethodID)).join(', ') }}
+        </div>
+        <em v-if="!subjects.length && !breedingSchemes.length && !propagationMethods.length">
+          No content yet — click Refresh to generate preview
+        </em>
+      </div>
+    </ChapterPreview>
   </div>
 </template>
 

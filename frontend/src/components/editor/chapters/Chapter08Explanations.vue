@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Button, Card, Select } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 import { useTinymce } from '@/composables/useTinymce';
@@ -84,6 +85,7 @@ function charName(tocId: number): string {
   return char ? `${char.CharacteristicOrder}. ${char.TOC_Name}` : `TOC_ID ${tocId}`;
 }
 
+// ── Preview ──────────────────────────────────────────────────────────────────
 const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
@@ -142,5 +144,20 @@ async function handleRefresh(lang: string) {
         No explanations added yet. Select a characteristic above to add an explanation.
       </p>
     </template>
+
+    <!-- Chapter-level Preview -->
+    <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
+      <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+      <div v-else-if="previewHtml" v-html="previewHtml" />
+      <div v-else>
+        <div v-if="explanations.length > 0" style="display: flex; flex-direction: column; gap: 8px">
+          <div v-for="expl in explanations" :key="expl.Explanation_ID">
+            <strong>Ad. {{ charName(expl.TOC_ID) }}:</strong>
+            <div v-html="expl.Explaination_Text || '<em>No content</em>'" style="margin-top: 4px" />
+          </div>
+        </div>
+        <em v-else>No explanations yet — click Refresh to generate preview</em>
+      </div>
+    </ChapterPreview>
   </div>
 </template>
