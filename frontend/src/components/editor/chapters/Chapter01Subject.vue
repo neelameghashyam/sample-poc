@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, RadioGroup, RadioOption, Links } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
@@ -25,7 +25,7 @@ function setRadio(field: string, value: 'Y' | 'N') {
   onFieldChange(field, value);
 }
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -37,6 +37,15 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+// Auto-load preview when the chapter mounts
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -122,18 +131,5 @@ async function handleRefresh(lang: string) {
 
     <!-- API-rendered HTML preview -->
     <div v-else-if="previewHtml" v-html="previewHtml" />
-
-    <!-- Default local preview (shown before first Refresh click) -->
-    <div v-else>
-      <div v-if="data.SubjectClarificationIndicator">
-        <strong>1.1.1 Subject clarification:</strong> {{ data.SubjectClarificationIndicator === 'Y' ? 'Yes' : 'No' }}
-      </div>
-      <div v-if="data.Sub_check">
-        <strong>1.1.2 Additional characteristics:</strong> {{ data.Sub_check === 'Y' ? 'Yes' : 'No' }}
-      </div>
-      <div v-if="data.Sub_Add_Info" v-html="data.Sub_Add_Info" style="margin-top: 8px"></div>
-      <div v-if="data.Sub_OtherInfo" v-html="data.Sub_OtherInfo" style="margin-top: 8px"></div>
-      <em v-if="!data.SubjectClarificationIndicator && !data.Sub_check && !data.Sub_Add_Info && !data.Sub_OtherInfo">No content yet — click Refresh to generate preview</em>
-    </div>
   </ChapterPreview>
 </template>

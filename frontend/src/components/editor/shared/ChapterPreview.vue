@@ -4,12 +4,12 @@ import { Icon } from 'upov-ui';
 
 defineProps<{
   emptyMessage?: string;
-  /** When true, the preview area shows a loading spinner */
+  /** When true, the preview area shows a skeleton loader */
   loading?: boolean;
 }>();
 
 const emit = defineEmits<{
-  /** Fired only when the Refresh button is clicked, carries the selected language */
+  /** Fired on mount (auto-load) and when Refresh button is clicked, carries the selected language */
   refresh: [lang: string];
 }>();
 
@@ -23,7 +23,7 @@ const languages = [
   { value: 'zh', label: '中文' },
 ];
 
-/** Only called when the user explicitly clicks Refresh */
+/** Called when the user explicitly clicks Refresh */
 function handleRefresh() {
   emit('refresh', selectedLanguage.value);
 }
@@ -131,10 +131,15 @@ function handleRefresh() {
 
     <!-- Preview Content -->
     <div style="padding: 14px 16px; font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
-      <!-- Loading state -->
-      <div v-if="loading" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-neutral-500, #6b7280)">
-        <Icon icon="hourglass-split" size="small" />
-        <span>Generating preview…</span>
+      <!-- Skeleton loading state -->
+      <div v-if="loading" class="skeleton-wrap">
+        <div class="skeleton-line" style="width: 40%; height: 14px; margin-bottom: 10px;"></div>
+        <div class="skeleton-line" style="width: 75%; height: 12px; margin-bottom: 7px;"></div>
+        <div class="skeleton-line" style="width: 60%; height: 12px; margin-bottom: 7px;"></div>
+        <div class="skeleton-line" style="width: 80%; height: 12px; margin-bottom: 14px;"></div>
+        <div class="skeleton-line" style="width: 35%; height: 14px; margin-bottom: 10px;"></div>
+        <div class="skeleton-line" style="width: 70%; height: 12px; margin-bottom: 7px;"></div>
+        <div class="skeleton-line" style="width: 55%; height: 12px;"></div>
       </div>
 
       <!-- Slot for content / empty message -->
@@ -161,5 +166,21 @@ function handleRefresh() {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.skeleton-wrap {
+  padding: 4px 0;
+}
+
+.skeleton-line {
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite linear;
 }
 </style>
