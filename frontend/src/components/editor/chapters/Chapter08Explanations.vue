@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Button, Card, Select } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
@@ -15,7 +15,6 @@ const { apiKey, init: tinymceInit } = useTinymce({ height: 250 });
 const explanations = computed<Explanation[]>(() => store.chapters['08']?.explanations ?? []);
 const characteristics = computed(() => store.chapters['07']?.characteristics ?? []);
 
-// Map TOC_ID → explanation for quick lookup
 const explByTocId = computed(() => {
   const map: Record<number, Explanation> = {};
   for (const e of explanations.value) {
@@ -24,18 +23,15 @@ const explByTocId = computed(() => {
   return map;
 });
 
-// Characteristics that don't have an explanation yet
 const charsWithoutExpl = computed(() =>
   characteristics.value.filter((c: any) => !explByTocId.value[c.TOC_ID]),
 );
 
-// ── Refresh ──────────────────────────────────────────────────────────────────
 async function refreshExplanations() {
   const res = await editorApi.open(store.tgId!);
   store.chapters['08'] = res.chapters['08'];
 }
 
-// ── Add explanation ──────────────────────────────────────────────────────────
 const selectedTocIdStr = ref('');
 
 const charSelectOptions = computed<SelectOption[]>(() =>
@@ -55,13 +51,11 @@ async function addExplanation() {
   await refreshExplanations();
 }
 
-// ── Delete explanation ───────────────────────────────────────────────────────
 async function deleteExplanation(explId: number) {
   await editorApi.deleteExplanation(store.tgId!, explId);
   await refreshExplanations();
 }
 
-// ── Autosave explanation text ────────────────────────────────────────────────
 const saveTimers: Record<number, ReturnType<typeof setTimeout>> = {};
 
 function onExplanationChange(expl: Explanation, content: string) {
@@ -79,18 +73,16 @@ function onExplanationChange(expl: Explanation, content: string) {
   }, 500);
 }
 
-// ── Helper ───────────────────────────────────────────────────────────────────
 function charName(tocId: number): string {
   const char = characteristics.value.find((c: any) => c.TOC_ID === tocId);
   return char ? `${char.CharacteristicOrder}. ${char.TOC_Name}` : `TOC_ID ${tocId}`;
 }
 
-// ── Preview ──────────────────────────────────────────────────────────────────
 const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -102,6 +94,14 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -149,15 +149,6 @@ async function handleRefresh(lang: string) {
     <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
       <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
       <div v-else-if="previewHtml" v-html="previewHtml" />
-      <div v-else>
-        <div v-if="explanations.length > 0" style="display: flex; flex-direction: column; gap: 8px">
-          <div v-for="expl in explanations" :key="expl.Explanation_ID">
-            <strong>Ad. {{ charName(expl.TOC_ID) }}:</strong>
-            <div v-html="expl.Explaination_Text || '<em>No content</em>'" style="margin-top: 4px" />
-          </div>
-        </div>
-        <em v-else>No explanations yet — click Refresh to generate preview</em>
-      </div>
     </ChapterPreview>
   </div>
 </template>

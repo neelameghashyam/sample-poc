@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -20,7 +20,7 @@ const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -32,6 +32,14 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -57,6 +65,5 @@ async function handleRefresh(lang: string) {
   <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
-    <div v-else><div v-html="data.GroupingSummaryText || '<em>No content yet</em>'"></div></div>
   </ChapterPreview>
 </template>

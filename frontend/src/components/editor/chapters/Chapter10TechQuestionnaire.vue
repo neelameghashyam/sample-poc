@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Button, Select, Chip, RadioGroup, RadioOption, Input, Textarea, Table } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -21,25 +21,20 @@ const breedingSchemes = computed<TqBreedingScheme[]>(() => data.value?.breedingS
 const propagationMethods = computed<TqPropagationMethod[]>(() => data.value?.propagationMethods ?? []);
 const tqChars = computed<TqCharacteristic[]>(() => data.value?.characteristics ?? []);
 
-// Available chars from ch07 for adding to TQ5
 const ch07Chars = computed(() => store.chapters['07']?.characteristics ?? []);
 
-// Lookups
 const bsMethods = computed(() => store.lookups?.breedingSchemeMethods ?? []);
 const pmTypes = computed(() => store.lookups?.propagationMethodTypes ?? []);
 
-// ── Autosave scalar fields ───────────────────────────────────────────────────
 function onFieldChange(field: string, value: any) {
   store.autosave('10', field, value);
 }
 
-// ── Refresh ch10 from server ─────────────────────────────────────────────────
 async function refreshCh10() {
   const res = await editorApi.open(store.tgId!);
   store.chapters['10'] = res.chapters['10'];
 }
 
-// ── Subjects CRUD ────────────────────────────────────────────────────────────
 async function addSubject() {
   await editorApi.createTqSubject(store.tgId!, {
     TqBotanicalName: '',
@@ -63,7 +58,6 @@ function autosaveSubject(subject: TqSubject, field: string, value: string) {
   }, 500);
 }
 
-// ── Breeding Schemes CRUD ────────────────────────────────────────────────────
 const newBsMethod = ref('');
 
 async function addBreedingScheme() {
@@ -80,7 +74,6 @@ async function deleteBreedingScheme(id: number) {
   await refreshCh10();
 }
 
-// ── Propagation Methods CRUD ─────────────────────────────────────────────────
 const newPmType = ref('');
 
 async function addPropMethod() {
@@ -97,7 +90,6 @@ async function deletePropMethod(id: number) {
   await refreshCh10();
 }
 
-// ── TQ Characteristics CRUD ──────────────────────────────────────────────────
 const newCharTocIdStr = ref('');
 
 async function addTqChar() {
@@ -117,13 +109,11 @@ async function deleteTqChar(id: number) {
   await refreshCh10();
 }
 
-// Available ch07 chars not yet in TQ
 const availableChars = computed(() => {
   const usedIds = new Set(tqChars.value.map((c) => c.TOC_ID));
   return ch07Chars.value.filter((c: any) => !usedIds.has(c.TOC_ID));
 });
 
-// ── Select options ──────────────────────────────────────────────────────────
 const bsSelectOptions = computed<SelectOption[]>(() =>
   bsMethods.value.map((m: any) => ({ value: m.code, label: m.label })),
 );
@@ -139,7 +129,6 @@ const charSelectOptions = computed<SelectOption[]>(() =>
   })),
 );
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function bsLabel(code: string) {
   return bsMethods.value.find((m: any) => m.code === code)?.label || code;
 }
@@ -147,12 +136,11 @@ function pmLabel(code: string) {
   return pmTypes.value.find((m: any) => m.code === code)?.label || code;
 }
 
-// ── Preview ──────────────────────────────────────────────────────────────────
 const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -164,6 +152,14 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -375,20 +371,6 @@ async function handleRefresh(lang: string) {
     <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
       <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
       <div v-else-if="previewHtml" v-html="previewHtml" />
-      <div v-else>
-        <div v-if="subjects.length > 0">
-          <strong>Subjects:</strong> {{ subjects.map(s => s.TqBotanicalName || s.TqCommonName).filter(Boolean).join(', ') || '—' }}
-        </div>
-        <div v-if="breedingSchemes.length > 0" style="margin-top: 4px">
-          <strong>Breeding schemes:</strong> {{ breedingSchemes.map(b => bsLabel(b.TqBreedingSchemeMethodID)).join(', ') }}
-        </div>
-        <div v-if="propagationMethods.length > 0" style="margin-top: 4px">
-          <strong>Propagation methods:</strong> {{ propagationMethods.map(p => pmLabel(p.TqVarietyPropagationMethodID)).join(', ') }}
-        </div>
-        <em v-if="!subjects.length && !breedingSchemes.length && !propagationMethods.length">
-          No content yet — click Refresh to generate preview
-        </em>
-      </div>
     </ChapterPreview>
   </div>
 </template>

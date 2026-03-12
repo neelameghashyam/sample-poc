@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { RadioGroup, RadioOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
@@ -23,7 +23,7 @@ const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -35,6 +35,14 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -95,23 +103,5 @@ async function handleRefresh(lang: string) {
   <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
-    <div v-else><div style="display: flex; flex-direction: column; gap: 10px">
-      <div v-if="data.Material_Supplied">
-        <strong>2.1 Form of material:</strong>
-        <div v-html="data.Material_Supplied" style="margin-top: 4px"></div>
-      </div>
-      <div v-if="data.Min_Plant_Material">
-        <strong>2.2 Minimum quantity:</strong>
-        <div v-html="data.Min_Plant_Material" style="margin-top: 4px"></div>
-      </div>
-      <div v-if="data.SeedQualityReq">
-        <strong>2.3 Seed Quality Requirement:</strong> {{ data.SeedQualityReq }}
-      </div>
-      <div v-if="data.Material_AddInfo">
-        <strong>2.4 Additional information:</strong>
-        <div v-html="data.Material_AddInfo" style="margin-top: 4px"></div>
-      </div>
-      <em v-if="!data.Material_Supplied && !data.Min_Plant_Material && !data.SeedQualityReq && !data.Material_AddInfo">No content yet</em>
-    </div></div>
   </ChapterPreview>
 </template>

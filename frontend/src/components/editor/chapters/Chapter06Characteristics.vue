@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, ToggleSwitch } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
@@ -28,7 +28,7 @@ const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -40,6 +40,14 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -101,18 +109,5 @@ async function handleRefresh(lang: string) {
   <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
-    <div v-else>
-      <div v-if="data.isCharacteristicsLegend === 'Y' && data.CharacteristicLegend">
-        <strong>6.1 Legend:</strong>
-        <div v-html="data.CharacteristicLegend" style="margin-top: 4px" />
-      </div>
-      <div v-if="data.isExampleVarietyText === 'Y' && data.ExampleVarietyText" style="margin-top: 8px">
-        <strong>6.2 Example variety text:</strong>
-        <div v-html="data.ExampleVarietyText" style="margin-top: 4px" />
-      </div>
-      <em v-if="data.isCharacteristicsLegend !== 'Y' && data.isExampleVarietyText !== 'Y'">
-        No content enabled yet — click Refresh to generate preview
-      </em>
-    </div>
   </ChapterPreview>
 </template>

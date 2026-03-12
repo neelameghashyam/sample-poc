@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
@@ -21,7 +21,7 @@ const previewHtml = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewError = ref<string | null>(null);
 
-async function handleRefresh(lang: string) {
+async function loadPreview(lang: string) {
   if (!store.tgId) return;
   previewLoading.value = true;
   previewError.value = null;
@@ -33,6 +33,14 @@ async function handleRefresh(lang: string) {
     previewLoading.value = false;
   }
 }
+
+async function handleRefresh(lang: string) {
+  await loadPreview(lang);
+}
+
+onMounted(() => {
+  loadPreview('en');
+});
 </script>
 
 <template>
@@ -134,22 +142,5 @@ async function handleRefresh(lang: string) {
   <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
-    <div v-else><div style="display: flex; flex-direction: column; gap: 10px">
-      <div v-if="data.IsHybridParentFormula"><strong>4.1.1 Hybrid parent formula:</strong> {{ data.IsHybridParentFormula === 'Y' ? 'Yes' : 'No' }}</div>
-      <div v-if="data.IsHybridVariety"><strong>4.1.2 Hybrid variety:</strong> {{ data.IsHybridVariety === 'Y' ? 'Yes' : 'No' }}</div>
-      <div v-if="data.DistinctnessAddInfo">
-        <strong>4.1 Additional distinctness info:</strong>
-        <div v-html="data.DistinctnessAddInfo" style="margin-top:4px"></div>
-      </div>
-      <div v-if="data.typeOfPropagation"><strong>4.2.1 Type of propagation:</strong> {{ data.typeOfPropagation }}</div>
-      <div v-if="data.IsOneMethodOfPropogation"><strong>4.2.2 More than one propagation method:</strong> {{ data.IsOneMethodOfPropogation === 'Y' ? 'Yes' : 'No' }}</div>
-      <div v-if="data.SinglePlant"><strong>Single plant count:</strong> {{ data.SinglePlant }}</div>
-      <div v-if="data.PartsPlant"><strong>Parts of plant:</strong> {{ data.PartsPlant }}</div>
-      <div v-if="data.StabilityAddInfo">
-        <strong>4.3 Stability additional info:</strong>
-        <div v-html="data.StabilityAddInfo" style="margin-top:4px"></div>
-      </div>
-      <em v-if="!data.IsHybridParentFormula && !data.typeOfPropagation && !data.StabilityAddInfo">No content yet</em>
-    </div></div>
   </ChapterPreview>
 </template>
