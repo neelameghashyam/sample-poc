@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { Button, Select, Chip, RadioGroup, RadioOption, Input, Textarea, Table } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
+import { useChapterPreview } from '@/composables/useChapterPreview';
 import SectionAccordion from '../shared/SectionAccordion.vue';
 import type {
   TqSubject,
@@ -14,6 +15,7 @@ import type {
 } from '@/types/editor';
 
 const store = useEditorStore();
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('10');
 
 const data = computed(() => store.chapters['10']);
 const subjects = computed<TqSubject[]>(() => data.value?.subjects ?? []);
@@ -28,6 +30,7 @@ const pmTypes = computed(() => store.lookups?.propagationMethodTypes ?? []);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('10', field, value);
+  markDirty();
 }
 
 async function refreshCh10() {
@@ -41,11 +44,13 @@ async function addSubject() {
     TqCommonName: '',
   });
   await refreshCh10();
+  markDirty();
 }
 
 async function deleteSubject(id: number) {
   await editorApi.deleteTqSubject(store.tgId!, id);
   await refreshCh10();
+  markDirty();
 }
 
 let subjectTimers: Record<number, ReturnType<typeof setTimeout>> = {};
@@ -55,6 +60,7 @@ function autosaveSubject(subject: TqSubject, field: string, value: string) {
   if (subjectTimers[key]) clearTimeout(subjectTimers[key]);
   subjectTimers[key] = setTimeout(async () => {
     await editorApi.updateTqSubject(store.tgId!, key, { [field]: value });
+    markDirty();
   }, 500);
 }
 
@@ -67,11 +73,13 @@ async function addBreedingScheme() {
   });
   newBsMethod.value = '';
   await refreshCh10();
+  markDirty();
 }
 
 async function deleteBreedingScheme(id: number) {
   await editorApi.deleteBreedingScheme(store.tgId!, id);
   await refreshCh10();
+  markDirty();
 }
 
 const newPmType = ref('');
@@ -83,11 +91,13 @@ async function addPropMethod() {
   });
   newPmType.value = '';
   await refreshCh10();
+  markDirty();
 }
 
 async function deletePropMethod(id: number) {
   await editorApi.deleteTqPropMethod(store.tgId!, id);
   await refreshCh10();
+  markDirty();
 }
 
 const newCharTocIdStr = ref('');
@@ -102,11 +112,13 @@ async function addTqChar() {
   });
   newCharTocIdStr.value = '';
   await refreshCh10();
+  markDirty();
 }
 
 async function deleteTqChar(id: number) {
   await editorApi.deleteTqChar(store.tgId!, id);
   await refreshCh10();
+  markDirty();
 }
 
 const availableChars = computed(() => {
@@ -135,31 +147,6 @@ function bsLabel(code: string) {
 function pmLabel(code: string) {
   return pmTypes.value.find((m: any) => m.code === code)?.label || code;
 }
-
-const previewHtml = ref<string | null>(null);
-const previewLoading = ref(false);
-const previewError = ref<string | null>(null);
-
-async function loadPreview(lang: string) {
-  if (!store.tgId) return;
-  previewLoading.value = true;
-  previewError.value = null;
-  try {
-    previewHtml.value = await editorApi.docPreview(store.tgId, '10', lang);
-  } catch (err: any) {
-    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
-  } finally {
-    previewLoading.value = false;
-  }
-}
-
-async function handleRefresh(lang: string) {
-  await loadPreview(lang);
-}
-
-onMounted(() => {
-  loadPreview('en');
-});
 </script>
 
 <template>
@@ -368,7 +355,7 @@ onMounted(() => {
     </SectionAccordion>
 
     <!-- Chapter-level Preview -->
-    <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
+    <ChapterPreview :loading="previewLoading" :needs-refresh="needsRefresh" @refresh="handleRefresh">
       <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
       <div v-else-if="previewHtml" v-html="previewHtml" />
     </ChapterPreview>

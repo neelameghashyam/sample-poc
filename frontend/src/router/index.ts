@@ -12,13 +12,18 @@ declare module 'vue-router' {
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/dashboard',
+    redirect: '/dashboard/active',
   },
   {
     path: '/dashboard',
-    name: 'dashboard',
-    component: () => import('@/views/dashboard/DashboardView.vue'),
+    component: () => import('@/views/dashboard/DashboardLayout.vue'),
     meta: { requiresAuth: true, requiresAccess: true },
+    children: [
+      { path: '', redirect: '/dashboard/active' },
+      { path: 'active', name: 'dashboard-active', component: () => import('@/views/dashboard/DashboardView.vue') },
+      { path: 'adopted', name: 'dashboard-adopted', component: () => import('@/views/dashboard/AdoptedView.vue'), meta: { requiresAdmin: true } },
+      { path: 'archived', name: 'dashboard-archived', component: () => import('@/views/dashboard/ArchivedView.vue') },
+    ],
   },
   {
     path: '/admin/users',
@@ -81,7 +86,7 @@ router.beforeEach(async (to, _from, next) => {
   } else if (to.meta.requiresAccess && (authStore.needsAccessRequest || authStore.isPendingApproval)) {
     next({ name: 'access-request' });
   } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next({ name: 'dashboard' });
+    next({ name: 'dashboard-active' });
   } else {
     next();
   }

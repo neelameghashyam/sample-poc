@@ -1,51 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, RadioGroup, RadioOption, Links } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
-import { editorApi } from '@/services/editor-api';
-import AddParagraphButton from '@/components/editor/shared/AddParagraphButton.vue';
+import { useChapterPreview } from '@/composables/useChapterPreview';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('01');
 
 const data = computed(() => store.chapters['01']);
 
-const previewHtml = ref<string | null>(null);
-const previewLoading = ref(false);
-const previewError = ref<string | null>(null);
-
 function onFieldChange(field: string, value: any) {
   store.autosave('01', field, value);
+  // Mark preview as stale — user should refresh to see the updated preview
+  markDirty();
 }
 
 function setRadio(field: string, value: 'Y' | 'N') {
   onFieldChange(field, value);
 }
-
-async function loadPreview(lang: string) {
-  if (!store.tgId) return;
-  previewLoading.value = true;
-  previewError.value = null;
-  try {
-    previewHtml.value = await editorApi.docPreview(store.tgId, '01', lang);
-  } catch (err: any) {
-    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
-  } finally {
-    previewLoading.value = false;
-  }
-}
-
-async function handleRefresh(lang: string) {
-  await loadPreview(lang);
-}
-
-// Auto-load preview when the chapter mounts
-onMounted(() => {
-  loadPreview('en');
-});
 </script>
 
 <template>
@@ -112,9 +88,6 @@ onMounted(() => {
           @update:model-value="onFieldChange('Sub_OtherInfo', $event)"
         />
       </div>
-
-      <!-- Paragraphs -->
-      <AddParagraphButton />
     </div>
   </Card>
 
@@ -122,14 +95,12 @@ onMounted(() => {
   <ChapterPreview
     v-if="data"
     :loading="previewLoading"
+    :needs-refresh="needsRefresh"
     @refresh="handleRefresh"
   >
-    <!-- Error state -->
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">
       ⚠ {{ previewError }}
     </div>
-
-    <!-- API-rendered HTML preview -->
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>
 </template>

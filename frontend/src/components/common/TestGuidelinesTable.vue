@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { DataTable, StatusBadge, Chip, ActionMenu } from 'upov-ui';
 import type { DataTableColumn, DataTableSortState, StatusBadgeVariant, ActionMenuItem } from 'upov-ui';
 import type { TGStatus, TestGuidelineListItem } from '@/types';
@@ -16,6 +16,9 @@ interface Props {
   filterValues?: Record<string, string>;
   sortState?: DataTableSortState;
   statusOptions?: StatusOption[];
+  statusLabel?: string;
+  actions?: ActionMenuItem[];
+  dateColumn?: { key: string; label: string };
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,19 +28,18 @@ const props = withDefaults(defineProps<Props>(), {
   filterValues: () => ({}),
   sortState: undefined,
   statusOptions: () => [],
+  statusLabel: 'Status (Period)',
+  actions: () => [{ id: 'edit', label: 'Edit', icon: 'pencil' }],
+  dateColumn: () => ({ key: 'lastUpdated', label: 'Last Updated' }),
 });
 
 const emit = defineEmits<{
   select: [id: number];
-  edit: [id: number];
+  action: [actionId: string, tgId: number];
   'update:filterValues': [values: Record<string, string>];
   filter: [values: Record<string, string>];
   sort: [state: DataTableSortState];
 }>();
-
-const editAction: ActionMenuItem[] = [
-  { id: 'edit', label: 'Edit', icon: 'pencil' },
-];
 
 const columns = computed<DataTableColumn[]>(() => [
   { key: 'reference', label: 'TG Reference', width: '180px', filterable: true },
@@ -51,8 +53,8 @@ const columns = computed<DataTableColumn[]>(() => [
   ]},
   { key: 'upovCodes', label: 'UPOV Code(s)', width: '240px', filterable: true },
   { key: 'leadExpert', label: 'Leading Expert', width: '200px', filterable: true },
-  { key: 'status', label: 'Status (Period)', width: '160px', filterable: true, filterType: 'select', filterOptions: props.statusOptions },
-  { key: 'lastUpdated', label: 'Last Updated', width: '120px', sortable: true },
+  { key: 'status', label: props.statusLabel, width: '160px', filterable: true, filterType: 'select', filterOptions: props.statusOptions },
+  { key: props.dateColumn.key, label: props.dateColumn.label, width: '140px', sortable: true },
 ]);
 
 const statusLabels: Record<TGStatus, string> = {
@@ -97,6 +99,14 @@ function highlightText(text: string, filter: string): string {
   return escaped.replace(re, '<mark class="data-table__mark">$1</mark>');
 }
 
+const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null);
+
+function toggleFilters(colKey?: string) {
+  dataTableRef.value?.toggleFilters(colKey);
+}
+
+defineExpose({ toggleFilters });
+
 function onRowClick(row: Record<string, any>) {
   emit('select', row.id);
 }
@@ -104,6 +114,7 @@ function onRowClick(row: Record<string, any>) {
 
 <template>
   <DataTable
+    ref="dataTableRef"
     :columns="columns"
     :rows="items"
     row-key="id"
@@ -166,11 +177,19 @@ function onRowClick(row: Record<string, any>) {
     </template>
 
     <template #cell-lastUpdated="{ row }">
-      {{ new Date(row.lastUpdated).toLocaleDateString() }}
+      {{ formatDate(row.lastUpdated) }}
+    </template>
+
+    <template #cell-adoptionDate="{ row }">
+      {{ formatDate(row.adoptionDate) }}
+    </template>
+
+    <template #cell-statusDate="{ row }">
+      {{ formatDate(row.statusDate) }}
     </template>
 
     <template #row-actions="{ row }">
-      <ActionMenu :items="editAction" @select="emit('edit', row.id)" />
+      <ActionMenu :items="actions" @select="(item: ActionMenuItem) => emit('action', item.id, row.id)" />
     </template>
 
     <template #row-detail="{ row, index }">

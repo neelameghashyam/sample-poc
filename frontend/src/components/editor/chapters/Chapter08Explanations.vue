@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Button, Card, Select } from 'upov-ui';
 import type { SelectOption } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
+import { useChapterPreview } from '@/composables/useChapterPreview';
 import { useTinymce } from '@/composables/useTinymce';
 import type { Explanation } from '@/types/editor';
 
 const store = useEditorStore();
 const { apiKey, init: tinymceInit } = useTinymce({ height: 250 });
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('08');
 
 const explanations = computed<Explanation[]>(() => store.chapters['08']?.explanations ?? []);
 const characteristics = computed(() => store.chapters['07']?.characteristics ?? []);
@@ -49,11 +51,13 @@ async function addExplanation() {
   });
   selectedTocIdStr.value = '';
   await refreshExplanations();
+  markDirty();
 }
 
 async function deleteExplanation(explId: number) {
   await editorApi.deleteExplanation(store.tgId!, explId);
   await refreshExplanations();
+  markDirty();
 }
 
 const saveTimers: Record<number, ReturnType<typeof setTimeout>> = {};
@@ -67,6 +71,7 @@ function onExplanationChange(expl: Explanation, content: string) {
       await editorApi.updateExplanation(store.tgId!, id, {
         Explaination_Text: content,
       });
+      markDirty();
     } catch (err) {
       console.error('Failed to save explanation:', err);
     }
@@ -77,31 +82,6 @@ function charName(tocId: number): string {
   const char = characteristics.value.find((c: any) => c.TOC_ID === tocId);
   return char ? `${char.CharacteristicOrder}. ${char.TOC_Name}` : `TOC_ID ${tocId}`;
 }
-
-const previewHtml = ref<string | null>(null);
-const previewLoading = ref(false);
-const previewError = ref<string | null>(null);
-
-async function loadPreview(lang: string) {
-  if (!store.tgId) return;
-  previewLoading.value = true;
-  previewError.value = null;
-  try {
-    previewHtml.value = await editorApi.docPreview(store.tgId, '08', lang);
-  } catch (err: any) {
-    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
-  } finally {
-    previewLoading.value = false;
-  }
-}
-
-async function handleRefresh(lang: string) {
-  await loadPreview(lang);
-}
-
-onMounted(() => {
-  loadPreview('en');
-});
 </script>
 
 <template>
@@ -146,7 +126,7 @@ onMounted(() => {
     </template>
 
     <!-- Chapter-level Preview -->
-    <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
+    <ChapterPreview :loading="previewLoading" :needs-refresh="needsRefresh" @refresh="handleRefresh">
       <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
       <div v-else-if="previewHtml" v-html="previewHtml" />
     </ChapterPreview>

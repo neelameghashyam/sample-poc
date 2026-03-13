@@ -7,6 +7,7 @@ import type {
   TestGuidelineListItem,
   TestGuidelineDetail,
   TestGuidelinesResponse,
+  IeComment,
 } from '@/types';
 
 export type DashboardTab = 'active' | 'adopted' | 'archived';
@@ -29,6 +30,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const selectedTgId = ref<number | null>(null);
   const selectedTgDetail = ref<TestGuidelineDetail | null>(null);
   const detailLoading = ref(false);
+  const ieComments = ref<IeComment[]>([]);
+  const ieCommentsLoading = ref(false);
 
   let fetchAbortController: AbortController | null = null;
 
@@ -83,20 +86,36 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
+  async function fetchIeComments(id: number): Promise<void> {
+    ieCommentsLoading.value = true;
+    try {
+      const response = await api.get<IeComment[]>(`/api/test-guidelines/${id}/ie-comments`);
+      ieComments.value = response.data;
+    } catch (err) {
+      console.error('Failed to fetch IE comments:', err);
+      ieComments.value = [];
+    } finally {
+      ieCommentsLoading.value = false;
+    }
+  }
+
   function selectTg(id: number): void {
     if (selectedTgId.value === id) {
       selectedTgId.value = null;
       selectedTgDetail.value = null;
+      ieComments.value = [];
       return;
     }
     selectedTgId.value = id;
     fetchTgDetail(id);
+    fetchIeComments(id);
   }
 
   function setTab(tab: DashboardTab): void {
     activeTab.value = tab;
     selectedTgId.value = null;
     selectedTgDetail.value = null;
+    ieComments.value = [];
     fetchTestGuidelines();
   }
 
@@ -110,6 +129,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     selectedTgId,
     selectedTgDetail,
     detailLoading,
+    ieComments,
+    ieCommentsLoading,
     fetchTestGuidelines,
     fetchStats,
     fetchTgDetail,

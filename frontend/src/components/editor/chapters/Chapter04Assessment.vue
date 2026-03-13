@@ -1,46 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
-import { editorApi } from '@/services/editor-api';
+import { useChapterPreview } from '@/composables/useChapterPreview';
 import { useTinymce } from '@/composables/useTinymce';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('04');
 
 const data = computed(() => store.chapters['04']);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('04', field, value);
+  markDirty();
 }
 
-const previewHtml = ref<string | null>(null);
-const previewLoading = ref(false);
-const previewError = ref<string | null>(null);
 
-async function loadPreview(lang: string) {
-  if (!store.tgId) return;
-  previewLoading.value = true;
-  previewError.value = null;
-  try {
-    previewHtml.value = await editorApi.docPreview(store.tgId, '04', lang);
-  } catch (err: any) {
-    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
-  } finally {
-    previewLoading.value = false;
-  }
-}
-
-async function handleRefresh(lang: string) {
-  await loadPreview(lang);
-}
-
-onMounted(() => {
-  loadPreview('en');
-});
 </script>
 
 <template>
@@ -139,7 +118,7 @@ onMounted(() => {
   </div>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
+  <ChapterPreview v-if="data" :loading="previewLoading" :needs-refresh="needsRefresh" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>

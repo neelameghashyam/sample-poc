@@ -13,6 +13,7 @@ export function useTinymce(options?: { height?: number }) {
     height: options?.height ?? 300,
     menubar: false,
     branding: false,
+    statusbar: false,
     plugins:
       'code insertdatetime advlist charmap preview anchor searchreplace visualblocks ' +
       'fullscreen help a11ychecker advcode casechange export formatpainter linkchecker ' +

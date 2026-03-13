@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { Button, Card, Input, Table, ReorderTable } from 'upov-ui';
 import type { ReorderTableColumn, ReorderTableGroup } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
+import { useChapterPreview } from '@/composables/useChapterPreview';
 import type { Characteristic, AdoptedSearchResult } from '@/types/editor';
 
 const store = useEditorStore();
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('07');
 
 const data = computed(() => store.chapters['07']);
 const characteristics = computed<Characteristic[]>(() => data.value?.characteristics ?? []);
@@ -48,6 +50,7 @@ async function importAdopted(result: AdoptedSearchResult) {
   const chars = await editorApi.searchAdopted(store.tgId!, '');
   await refreshCharacteristics();
   searchResults.value = searchResults.value.filter((r) => r.id !== result.id);
+  markDirty();
 }
 
 async function refreshCharacteristics() {
@@ -72,6 +75,7 @@ function openEditModal(char: Characteristic) {
 async function onDelete(group: ReorderTableGroup) {
   await editorApi.deleteCharacteristic(store.tgId!, group.id as number);
   await refreshCharacteristics();
+  markDirty();
 }
 
 // ── ReorderTable ─────────────────────────────────────────────────────────────
@@ -99,37 +103,13 @@ async function onReorder(newGroups: ReorderTableGroup[]) {
   const order = newGroups.map((g, i) => ({ TOC_ID: g.id as number, CharacteristicOrder: i + 1 }));
   await editorApi.reorderCharacteristics(store.tgId!, order);
   await refreshCharacteristics();
+  markDirty();
 }
 
 function onTitleClick(group: ReorderTableGroup) {
   const char = characteristics.value.find((c) => c.TOC_ID === group.id);
   if (char) openEditModal(char);
 }
-
-const previewHtml = ref<string | null>(null);
-const previewLoading = ref(false);
-const previewError = ref<string | null>(null);
-
-async function loadPreview(lang: string) {
-  if (!store.tgId) return;
-  previewLoading.value = true;
-  previewError.value = null;
-  try {
-    previewHtml.value = await editorApi.docPreview(store.tgId, '07', lang);
-  } catch (err: any) {
-    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
-  } finally {
-    previewLoading.value = false;
-  }
-}
-
-async function handleRefresh(lang: string) {
-  await loadPreview(lang);
-}
-
-onMounted(() => {
-  loadPreview('en');
-});
 </script>
 
 <template>
@@ -204,7 +184,7 @@ onMounted(() => {
   </div>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview :loading="previewLoading" @refresh="handleRefresh">
+  <ChapterPreview :loading="previewLoading" :needs-refresh="needsRefresh" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>

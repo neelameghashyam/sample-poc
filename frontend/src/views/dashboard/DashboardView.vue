@@ -1,21 +1,64 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useDashboardStore } from '@/stores/dashboard';
-import type { DashboardTab } from '@/stores/dashboard';
-import { Tabs, Spinner, PaginationNav } from 'upov-ui';
-import type { TabItem, DataTableSortState } from 'upov-ui';
-import type { TgUser } from '@/types';
+import { SidePanelLayout, SidePanel, Spinner, Toggle } from 'upov-ui';
+import type { DataTableSortState, TabItem } from 'upov-ui';
+import type { IeComment } from '@/types';
 import TestGuidelinesTable from '@/components/common/TestGuidelinesTable.vue';
 
 const store = useDashboardStore();
+const tableRef = ref<InstanceType<typeof TestGuidelinesTable> | null>(null);
 
-// Filtering, Sorting + Pagination — same pattern as UsersView
+function onKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault();
+    tableRef.value?.toggleFilters('name');
+  }
+}
+
 const filterValues = ref<Record<string, string>>({});
 const sortState = ref<DataTableSortState>({ key: '', direction: null });
-const currentPage = ref(1);
-const itemsPerPage = 20;
 
-const hasPagination = computed(() => store.activeTab !== 'active');
+const statusOptions = [
+  { value: 'LED', label: 'LE Draft' },
+  { value: 'IEC', label: 'IE Comments' },
+  { value: 'LEC', label: 'LE Checking' },
+  { value: 'LES', label: 'LE Signed Off' },
+];
+
+const panelTabs: TabItem[] = [
+  { label: 'Details', id: 'details' },
+  { label: 'IE Comments', id: 'comments' },
+];
+
+const panelTabCounts = computed<Record<string, number | null>>(() => ({
+  details: null,
+  comments: store.ieComments.length,
+}));
+
+const panelOpen = computed(() => store.selectedTgId != null);
+
+const commentSort = ref<'left' | 'right'>('left');
+
+interface CommentGroup {
+  title: string;
+  comments: IeComment[];
+}
+
+const groupedComments = computed<CommentGroup[]>(() => {
+  const map = new Map<string, IeComment[]>();
+  for (const c of store.ieComments) {
+    let key: string;
+    if (commentSort.value === 'right') {
+      key = c.ieName + (c.ieCountry ? ` (${c.ieCountry})` : '');
+    } else {
+      key = [c.chapterName, c.sectionName].filter(Boolean).join(' / ');
+    }
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(c);
+  }
+  return Array.from(map.entries()).map(([title, comments]) => ({ title, comments }));
+});
 
 const filteredItems = computed(() => {
   const filters = filterValues.value;
@@ -55,69 +98,21 @@ const sortedItems = computed(() => {
   });
 });
 
-const displayedItems = computed(() => {
-  if (!hasPagination.value) return sortedItems.value;
-  const start = (currentPage.value - 1) * itemsPerPage;
-  return sortedItems.value.slice(start, start + itemsPerPage);
-});
-
 function onFilter(values: Record<string, string>) {
   filterValues.value = values;
-  currentPage.value = 1;
 }
 
 function onSort(state: DataTableSortState) {
   sortState.value = state;
-  currentPage.value = 1;
-}
-
-function onPageChange(page: number) {
-  currentPage.value = page;
-}
-
-const tabs = computed<TabItem[]>(() => [
-  { id: 'active', label: 'Active' },
-  { id: 'adopted', label: 'Adopted' },
-  { id: 'archived', label: 'Archived' },
-]);
-
-const statusOptionsMap: Record<DashboardTab, { value: string; label: string }[]> = {
-  active: [
-    { value: 'LED', label: 'LE Draft' },
-    { value: 'IEC', label: 'IE Comments' },
-    { value: 'LEC', label: 'LE Checking' },
-    { value: 'LES', label: 'LE Signed Off' },
-  ],
-  adopted: [
-    { value: 'ADT', label: 'Adopted' },
-    { value: 'ABT', label: 'Aborted' },
-  ],
-  archived: [
-    { value: 'STU', label: 'Submitted' },
-    { value: 'ARC', label: 'Archived' },
-  ],
-};
-
-const statusOptions = computed(() => statusOptionsMap[store.activeTab]);
-
-function onTabChange(tab: TabItem) {
-  filterValues.value = {};
-  sortState.value = { key: '', direction: null };
-  currentPage.value = 1;
-  store.setTab(tab.id as DashboardTab);
 }
 
 function onRowSelect(id: number) {
   store.selectTg(id);
 }
 
-// Detail panel
-const interestedExperts = computed<TgUser[]>(() => {
-  if (!store.selectedTgDetail?.users) return [];
-  return store.selectedTgDetail.users
-    .filter((u) => u.role === 'IE')
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
-});
+function onPanelClose() {
+  store.selectTg(store.selectedTgId!);
+}
 
 function formatDate(value: string | null): string {
   if (!value) return '-';
@@ -125,109 +120,113 @@ function formatDate(value: string | null): string {
 }
 
 onMounted(() => {
+  store.setTab('active');
   store.fetchStats();
-  store.fetchTestGuidelines();
+  document.addEventListener('keydown', onKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown);
 });
 </script>
 
 <template>
-  <div class="dashboard">
-    <div class="table-section">
-      <Tabs :tabs="tabs" :active-tab-id="store.activeTab" @tab-change="onTabChange" />
+  <SidePanelLayout :open="panelOpen" panel-width="360px" class="active-layout">
+    <TestGuidelinesTable
+      ref="tableRef"
+      :items="sortedItems"
+      :loading="store.loading"
+      :selected-id="store.selectedTgId"
+      :filter-values="filterValues"
+      :sort-state="sortState"
+      :status-options="statusOptions"
+      @select="onRowSelect"
+      @update:filter-values="filterValues = $event"
+      @filter="onFilter"
+      @sort="onSort"
+    />
 
-      <TestGuidelinesTable
-        :items="displayedItems"
-        :loading="store.loading"
-        :selected-id="store.selectedTgId"
-        :filter-values="filterValues"
-        :sort-state="sortState"
-        :status-options="statusOptions"
-        @select="onRowSelect"
-        @update:filter-values="filterValues = $event"
-        @filter="onFilter"
-        @sort="onSort"
+    <template #panel>
+      <SidePanel
+        :open="panelOpen"
+        :tabs="panelTabs"
+        width="100%"
+        @close="onPanelClose"
       >
-        <template #row-detail>
-          <div class="detail-panel">
-            <div v-if="store.detailLoading" class="detail-loading">
-              <Spinner />
-            </div>
-            <template v-else-if="store.selectedTgDetail">
-              <div class="detail-grid">
-                <div class="detail-section">
-                  <h4 class="detail-heading">Deadlines</h4>
-                  <table class="detail-table">
-                    <tbody>
-                      <tr>
-                        <td class="detail-label">LE Draft</td>
-                        <td>{{ formatDate(store.selectedTgDetail.leDraftStart) }} - {{ formatDate(store.selectedTgDetail.leDraftEnd) }}</td>
-                      </tr>
-                      <tr>
-                        <td class="detail-label">IE Comments</td>
-                        <td>{{ formatDate(store.selectedTgDetail.ieCommentsStart) }} - {{ formatDate(store.selectedTgDetail.ieCommentsEnd) }}</td>
-                      </tr>
-                      <tr>
-                        <td class="detail-label">LE Checking</td>
-                        <td>{{ formatDate(store.selectedTgDetail.leCheckingStart) }} - {{ formatDate(store.selectedTgDetail.leCheckingEnd) }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="detail-section">
-                  <h4 class="detail-heading">Interested Experts ({{ interestedExperts.length }})</h4>
-                  <ul v-if="interestedExperts.length" class="ie-list">
-                    <li v-for="ie in interestedExperts" :key="ie.id" class="ie-item">
-                      {{ ie.fullName }}<span v-if="ie.country" class="ie-country"> ({{ ie.country }})</span>
-                    </li>
-                  </ul>
-                  <p v-else class="detail-empty">No interested experts assigned.</p>
-                </div>
-              </div>
-              <div class="detail-grid detail-grid--bottom">
-                <div class="detail-section">
-                  <h4 class="detail-heading">IE Comments ({{ store.selectedTgDetail.ieCommentCount }})</h4>
-                  <p v-if="!store.selectedTgDetail.ieCommentCount" class="detail-empty">No IE comments.</p>
-                </div>
-                <div class="detail-section">
-                  <h4 class="detail-heading">Admin Comments</h4>
-                  <p v-if="store.selectedTgDetail.adminComments" class="admin-comments">
-                    {{ store.selectedTgDetail.adminComments }}
-                  </p>
-                  <p v-else class="detail-empty">No admin comments.</p>
-                </div>
-              </div>
-            </template>
+        <template #tab-label="{ tab }">
+          {{ tab.label }} <span v-if="panelTabCounts[tab.id] != null" class="tab-sub">({{ panelTabCounts[tab.id] }})</span>
+        </template>
+        <template #tab-details>
+          <div v-if="store.detailLoading" class="detail-loading">
+            <Spinner />
           </div>
+          <template v-else-if="store.selectedTgDetail">
+            <h4 class="panel-title">{{ store.selectedTgDetail.reference }}</h4>
+            <p class="panel-subtitle">{{ store.selectedTgDetail.name }}</p>
+
+            <h5 class="detail-heading">Deadlines</h5>
+            <table class="detail-table">
+              <tbody>
+                <tr>
+                  <td class="detail-label">LE Draft</td>
+                  <td>{{ formatDate(store.selectedTgDetail.leDraftStart) }} - {{ formatDate(store.selectedTgDetail.leDraftEnd) }}</td>
+                </tr>
+                <tr>
+                  <td class="detail-label">IE Comments</td>
+                  <td>{{ formatDate(store.selectedTgDetail.ieCommentsStart) }} - {{ formatDate(store.selectedTgDetail.ieCommentsEnd) }}</td>
+                </tr>
+                <tr>
+                  <td class="detail-label">LE Checking</td>
+                  <td>{{ formatDate(store.selectedTgDetail.leCheckingStart) }} - {{ formatDate(store.selectedTgDetail.leCheckingEnd) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
         </template>
 
-        <template v-if="hasPagination" #pagination>
-          <PaginationNav
-            :current-page="currentPage"
-            :total-items="sortedItems.length"
-            :items-per-page="itemsPerPage"
-            @page-change="onPageChange"
-          />
+        <template #tab-comments>
+          <div v-if="store.ieCommentsLoading" class="detail-loading">
+            <Spinner />
+          </div>
+          <template v-else>
+            <div class="comments-header">
+              <span class="comments-group-label">Group by:</span>
+              <Toggle
+                v-model="commentSort"
+                :options="[
+                  { label: 'Chapter', value: 'left' },
+                  { label: 'Expert', value: 'right' },
+                ]"
+              />
+            </div>
+            <p v-if="!store.ieComments.length" class="detail-empty">No IE comments.</p>
+            <div v-else class="comments-list">
+              <div v-for="group in groupedComments" :key="group.title" class="comment-group">
+                <div class="comment-group-title">{{ group.title }}</div>
+                <div v-for="c in group.comments" :key="c.id" class="comment-item">
+                  <div class="comment-item-header">
+                    <span v-if="commentSort === 'left'" class="comment-ie">
+                      {{ c.ieName }}<span v-if="c.ieCountry" class="comment-country"> ({{ c.ieCountry }})</span>
+                    </span>
+                    <span v-else class="comment-chapter-label">
+                      {{ [c.chapterName, c.sectionName].filter(Boolean).join(' / ') }}
+                    </span>
+                    <span class="comment-date">{{ formatDate(c.lastUpdated) }}</span>
+                  </div>
+                  <div class="comment-body" v-html="c.comments" />
+                </div>
+              </div>
+            </div>
+          </template>
         </template>
-      </TestGuidelinesTable>
-    </div>
-  </div>
+      </SidePanel>
+    </template>
+  </SidePanelLayout>
 </template>
 
 <style scoped>
-.dashboard {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.table-section {
-  background: var(--color-bg-white);
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-
-.detail-panel {
-  padding: 20px 24px;
+.active-layout {
+  height: calc(100vh - 64px - 48px - 42px);
 }
 
 .detail-loading {
@@ -236,25 +235,25 @@ onMounted(() => {
   padding: 16px;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 32px;
+.panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
 }
 
-.detail-grid--bottom {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-neutral-200);
+.panel-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin: 4px 0 16px;
 }
 
 .detail-heading {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--color-text-secondary);
-  margin-bottom: 12px;
+  margin: 16px 0 8px;
 }
 
 .detail-table {
@@ -269,31 +268,7 @@ onMounted(() => {
 .detail-label {
   font-weight: 500;
   color: var(--color-text-secondary);
-  width: 120px;
-}
-
-.ie-list {
-  list-style: none;
-  padding: 0;
-  columns: 4;
-  column-gap: 24px;
-}
-
-.ie-item {
-  padding: 4px 0;
-  font-size: 0.875rem;
-  color: var(--color-text);
-  break-inside: avoid;
-}
-
-.ie-country {
-  color: var(--color-text-secondary);
-}
-
-.admin-comments {
-  font-size: 0.875rem;
-  color: var(--color-text);
-  white-space: pre-wrap;
+  width: 100px;
 }
 
 .detail-empty {
@@ -301,4 +276,78 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
+.comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.comments-group-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comment-group-title {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--color-primary-green-dark);
+  background: color-mix(in srgb,var(--color-primary-green) 12%,transparent) !important;
+  padding: 6px 2px;
+  border-radius: 4px;
+}
+
+.comment-item {
+  padding: 6px 0 6px 8px;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.comment-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.comment-ie {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.comment-chapter-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.comment-country {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+.comment-body {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
+
+.comment-body :deep(p) {
+  margin: 0;
+}
+
+.comment-date {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
 </style>

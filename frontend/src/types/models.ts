@@ -47,6 +47,8 @@ export interface TestGuidelineListItem {
   name: string;
   status: TGStatus;
   lastUpdated: string;
+  adoptionDate: string | null;
+  statusDate: string | null;
   leadExpert: string | null;
   leadExpertCountry: string | null;
   upovCodes: string[];
@@ -66,6 +68,16 @@ export interface TestGuidelineDetail extends TestGuidelineListItem {
   adminComments: string | null;
   ieCommentCount: number;
   users: TgUser[];
+}
+
+export interface IeComment {
+  id: number;
+  chapterName: string | null;
+  sectionName: string | null;
+  comments: string;
+  lastUpdated: string;
+  ieName: string;
+  ieCountry: string | null;
 }
 
 export interface TgUser {

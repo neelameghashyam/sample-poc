@@ -13,10 +13,15 @@ const store = useAdminUsersStore();
 const authStore = useAuthStore();
 const activeTab = ref('pending');
 
-const tabs = computed<TabItem[]>(() => [
-  { id: 'pending', label: `Pending Requests (${store.pendingUsers.length})` },
+const tabs: TabItem[] = [
+  { id: 'pending', label: 'Pending Requests' },
   { id: 'all', label: 'All Users' },
-]);
+];
+
+const tabCounts = computed<Record<string, number | null>>(() => ({
+  pending: store.pendingUsers.length,
+  all: null,
+}));
 
 function onTabChange(tab: TabItem) {
   activeTab.value = tab.id;
@@ -214,7 +219,12 @@ onMounted(() => {
 
 <template>
   <div class="users-view">
-    <Tabs :tabs="tabs" :active-tab-id="activeTab" @tab-change="onTabChange" />
+    <div class="table-section">
+    <Tabs :tabs="tabs" :active-tab-id="activeTab" @tab-change="onTabChange">
+      <template #tab-label="{ tab }">
+        {{ tab.label }} <span v-if="tabCounts[tab.id] != null" class="tab-sub">({{ tabCounts[tab.id] }})</span>
+      </template>
+    </Tabs>
 
     <!-- Pending Requests Tab -->
     <div v-if="activeTab === 'pending'" class="tab-content">
@@ -301,14 +311,18 @@ onMounted(() => {
             @select="(item: ActionMenuItem) => onActionSelect(item, row)"
           />
         </template>
-      </DataTable>
 
-      <PaginationNav
-        :current-page="currentPage"
-        :total-items="sortedUsers.length"
-        :items-per-page="itemsPerPage"
-        @page-change="onPageChange"
-      />
+        <template #pagination>
+          <PaginationNav
+            :current-page="currentPage"
+            :total-items="sortedUsers.length"
+            :items-per-page="itemsPerPage"
+            @page-change="onPageChange"
+          />
+        </template>
+      </DataTable>
+    </div>
+
     </div>
 
     <!-- Change Role Modal -->
@@ -373,8 +387,11 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-.tab-content {
-  margin-top: 16px;
+.table-section {
+  background: var(--color-bg-white);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .twp-chips {

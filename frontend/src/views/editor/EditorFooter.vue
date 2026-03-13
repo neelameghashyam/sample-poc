@@ -6,14 +6,14 @@ import { editorApi } from '@/services/editor-api';
 
 const store = useEditorStore();
 
-const exportLoading = ref(false);
-const exportError   = ref<string | null>(null);
+const importLoading = ref(false);
+const importError   = ref<string | null>(null);
 
-async function handleExport() {
-  if (!store.tgId || exportLoading.value) return;
+async function handleImport() {
+  if (!store.tgId || importLoading.value) return;
 
-  exportLoading.value = true;
-  exportError.value   = null;
+  importLoading.value = true;
+  importError.value   = null;
 
   try {
     const { blob, contentType, contentDisposition } = await editorApi.docGenerate(
@@ -40,10 +40,14 @@ async function handleExport() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (err: any) {
-    exportError.value =
-      err?.response?.data?.error?.message || 'Failed to generate document. Please try again.';
+    if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+      importError.value = 'Document generation timed out. The document is too large or the server is busy. Please try again in a few moments.';
+    } else {
+      importError.value =
+        err?.response?.data?.error?.message || 'Failed to generate document. Please try again.';
+    }
   } finally {
-    exportLoading.value = false;
+    importLoading.value = false;
   }
 }
 </script>
@@ -52,7 +56,7 @@ async function handleExport() {
   <div>
     <!-- Inline error message -->
     <div
-      v-if="exportError"
+      v-if="importError"
       style="
         margin: 6px 16px;
         padding: 6px 10px;
@@ -67,9 +71,9 @@ async function handleExport() {
         gap: 8px;
       "
     >
-      <span>⚠ {{ exportError }}</span>
+      <span>⚠ {{ importError }}</span>
       <button
-        @click="exportError = null"
+        @click="importError = null"
         style="background: none; border: none; cursor: pointer; color: #D32F2F; font-size: 16px; line-height: 1; padding: 0;"
       >&times;</button>
     </div>
@@ -77,10 +81,11 @@ async function handleExport() {
     <FooterAtom
       :has-previous-chapter="store.activeChapterIndex > 0"
       :has-next-chapter="store.activeChapterIndex < 10"
-      :export-label="exportLoading ? 'Exporting…' : 'Export'"
+      export-label="Export"
+      :import-loading="importLoading"
       @previous-chapter="store.goPrevious()"
       @next-chapter="store.goNext()"
-      @export="handleExport"
+      @export="handleImport"
     />
   </div>
 </template>

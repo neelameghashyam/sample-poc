@@ -1,4 +1,4 @@
-import api from './api';
+import api, { docGenerationApi } from './api';
 import type { OpenResponse } from '@/types/editor';
 
 const base = (id: number) => `/api/test-guidelines/${id}`;
@@ -93,9 +93,10 @@ export const editorApi = {
   /**
    * GET /api/test-guidelines/:id/chapters/:ch/preview?lang=en
    * Returns HTML string rendered by the Java backend.
+   * Uses extended timeout (3 minutes) for document generation.
    */
   docPreview: (id: number, ch: string, lang: string) =>
-    api
+    docGenerationApi
       .get<string>(`${base(id)}/chapters/${ch}/preview`, {
         params: { lang },
         responseType: 'text',
@@ -105,9 +106,10 @@ export const editorApi = {
   /**
    * Full document generate 
    * GET /api/test-guidelines/:id/doc-generate?lang=en
+   * Uses extended timeout (3 minutes) for document generation.
    */
   docGenerate: (id: number, lang: string) =>
-    api
+    docGenerationApi
       .get(`${base(id)}/doc-generate`, {
         params: { lang },
         responseType: 'blob',

@@ -17,10 +17,14 @@ function toggleDetails() {
 
 const mainCommonName = computed(() => store.tg?.TG_Name ?? '');
 const upovCodesStr = computed(() =>
-  store.upovCodes.map((uc) => uc.code).join('; '),
+  store.upovCodes
+    .map((uc) => uc.code.replace(/<\/?p>/g, '').trim())
+    .join('; '),
 );
 const botanicalNames = computed(() =>
-  store.upovCodes.map((uc) => uc.botanicalName).join(', '),
+  store.upovCodes
+    .map((uc) => uc.botanicalName.replace(/<\/?p>/g, '').trim())
+    .join(', '),
 );
 const documentName = computed(() => store.tg?.TG_Reference ?? '');
 const lastUpdated = computed(() => {
@@ -48,7 +52,7 @@ function onDocumentsChange(content: string) {
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px">
           <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">UPOV Code(s):</span>
-          <span style="font-size: 16px; font-weight: 600; color: var(--color-primary-green-dark); line-height: 20px">{{ upovCodesStr }}</span>
+          <span style="font-size: 16px; font-weight: 600; color: var(--color-primary-green-dark); line-height: 20px" v-html="upovCodesStr"></span>
         </div>
       </div>
       <Button type="primary" icon-left="check-circle">Submit</Button>
@@ -58,7 +62,7 @@ function onDocumentsChange(content: string) {
       <div v-if="showDetails" style="padding: 16px 0; border-bottom: 1px solid var(--color-neutral-200, #E2E2E2); display: flex; flex-direction: column; gap: 20px">
         <div style="display: flex; flex-direction: column; gap: 6px">
           <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">Botanical Name(s):</span>
-          <p style="font-weight: 700; font-size: 15px; line-height: 20px; color: var(--color-primary-green-dark)">{{ botanicalNames }}</p>
+          <p style="font-weight: 700; font-size: 15px; line-height: 20px; color: var(--color-primary-green-dark)" v-html="botanicalNames"></p>
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px">
           <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">Please indicate other associated UPOV documents:</span>

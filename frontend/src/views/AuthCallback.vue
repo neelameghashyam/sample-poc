@@ -48,7 +48,7 @@ onMounted(async () => {
 
 <template>
   <CenteredPage background="var(--color-bg-light)">
-    <Card elevation="medium" padding="spacious" centered>
+    <Card elevation="medium" padding="spacious" maxWidth="33.3%" centered>
       <div v-if="error">
         <Alert variant="error" :title="error">
           <details class="error-details">

@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, ToggleSwitch } from 'upov-ui';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 import { useEditorStore } from '@/stores/editor';
-import { editorApi } from '@/services/editor-api';
+import { useChapterPreview } from '@/composables/useChapterPreview';
 import { useTinymce } from '@/composables/useTinymce';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('06');
 
 const data = computed(() => store.chapters['06']);
 
 function onFieldChange(field: string, value: any) {
   store.autosave('06', field, value);
+  markDirty();
 }
 
 function onLegendToggle(val: 'left' | 'right') {
@@ -23,31 +25,6 @@ function onLegendToggle(val: 'left' | 'right') {
 function onExampleVarietyToggle(val: 'left' | 'right') {
   onFieldChange('isExampleVarietyText', val === 'right' ? 'Y' : 'N');
 }
-
-const previewHtml = ref<string | null>(null);
-const previewLoading = ref(false);
-const previewError = ref<string | null>(null);
-
-async function loadPreview(lang: string) {
-  if (!store.tgId) return;
-  previewLoading.value = true;
-  previewError.value = null;
-  try {
-    previewHtml.value = await editorApi.docPreview(store.tgId, '06', lang);
-  } catch (err: any) {
-    previewError.value = err?.response?.data?.error?.message || 'Failed to load preview';
-  } finally {
-    previewLoading.value = false;
-  }
-}
-
-async function handleRefresh(lang: string) {
-  await loadPreview(lang);
-}
-
-onMounted(() => {
-  loadPreview('en');
-});
 </script>
 
 <template>
@@ -106,7 +83,7 @@ onMounted(() => {
   </Card>
 
   <!-- Chapter-level Preview -->
-  <ChapterPreview v-if="data" :loading="previewLoading" @refresh="handleRefresh">
+  <ChapterPreview v-if="data" :loading="previewLoading" :needs-refresh="needsRefresh" @refresh="handleRefresh">
     <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>
