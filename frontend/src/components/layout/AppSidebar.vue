@@ -1,74 +1,76 @@
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { SidebarNav } from 'upov-ui';
+import type { SidebarNavItem, SidebarUser } from 'upov-ui';
 import { useAuthStore } from '@/stores/auth';
-import { Icon } from 'upov-ui';
-import type { MenuItem } from '@/types';
+import { useDashboardStore } from '@/stores/dashboard';
 
+const router = useRouter();
 const authStore = useAuthStore();
+const dashboardStore = useDashboardStore();
+const collapsed = ref(false);
 
-const menuItems: MenuItem[] = [
-  { name: 'Dashboard', path: '/dashboard', icon: 'speedometer2' },
-  { name: 'Test Guidelines', path: '/admin/test-guidelines', icon: 'file-earmark-text' },
-  { name: 'Users', path: '/admin/users', icon: 'people', adminOnly: true },
-];
+const pendingBadge = computed(() => {
+  const count = dashboardStore.stats.pendingRequests;
+  return count ? count : undefined;
+});
+
+const items = computed<SidebarNavItem[]>(() => [
+  { id: 'drafts', label: 'Drafts', icon: 'pencil-square', to: '/documents/drafts', badge: dashboardStore.stats.active || undefined },
+  { id: 'adopted', label: 'Adopted', icon: 'check-circle', to: '/documents/adopted', visible: authStore.isAdmin },
+  { id: 'archived', label: 'Archived', icon: 'archive', to: '/documents/archived' },
+  { id: 'submitted', label: 'Sent to UPOV', icon: 'send', to: '/documents/submitted', visible: authStore.isAdmin },
+  { id: 'aborted', label: 'Aborted', icon: 'x-circle', to: '/documents/aborted', visible: authStore.isAdmin },
+]);
+
+const bottomItems = computed<SidebarNavItem[]>(() => [
+  { id: 'users', label: 'Users', icon: 'people', to: '/admin/users', visible: authStore.isAdmin, dot: !!pendingBadge.value },
+  { id: 'settings', label: 'Settings', icon: 'gear', visible: authStore.isAdmin, children: [
+    { id: 'tg-management', label: 'TG Management', to: '/admin/settings/tg-management' },
+    { id: 'user-assignments', label: 'User Assignments', to: '/admin/settings/user-assignments' },
+    { id: 'technical-bodies', label: 'Technical Bodies', to: '/admin/settings/technical-bodies' },
+    { id: 'asw-data', label: 'ASW Data', to: '/admin/settings/asw-data' },
+  ]},
+]);
+
+const roleLabelMap: Record<string, string> = {
+  ADM: 'Admin',
+  EXP: 'Expert',
+  TRN: 'Translator',
+};
+
+const user = computed<SidebarUser | undefined>(() => {
+  if (!authStore.user) return undefined;
+  const roleCode = authStore.user.roles?.[0];
+  const roleLabel = roleCode ? roleLabelMap[roleCode] || roleCode : '';
+  return {
+    name: authStore.user.name,
+    email: roleLabel || authStore.user.email,
+  };
+});
+
+function onItemClick(item: SidebarNavItem) {
+  if (item.to) router.push(item.to);
+}
+
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    dashboardStore.fetchStats();
+  }
+});
+
 </script>
 
 <template>
-  <aside class="app-sidebar" v-if="authStore.isAuthenticated">
-    <nav class="sidebar-nav">
-      <RouterLink
-        v-for="item in menuItems"
-        :key="item.path"
-        :to="item.path"
-        class="nav-item"
-        v-show="!item.adminOnly || authStore.isAdmin"
-      >
-        <Icon :icon="item.icon" class="nav-icon" />
-        <span class="nav-text">{{ item.name }}</span>
-      </RouterLink>
-    </nav>
-  </aside>
+  <SidebarNav
+    v-if="authStore.isAuthenticated"
+    v-model:collapsed="collapsed"
+    :items="items"
+    :bottom-items="bottomItems"
+    :user="user"
+    :show-logout="false"
+    @item-click="onItemClick"
+    @user-click="router.push('/profile')"
+  />
 </template>
-
-<style scoped>
-.app-sidebar {
-  width: 240px;
-  background: var(--color-bg-white);
-  border-right: 1px solid var(--color-border-light);
-  padding: 16px 0;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.nav-item:hover {
-  background-color: var(--color-bg-light);
-}
-
-.nav-item.router-link-active {
-  background-color: color-mix(in srgb, var(--color-primary-green) 12%, transparent);
-  color: var(--color-primary-green-dark);
-  border-right: 3px solid var(--color-primary-green-dark);
-}
-
-.nav-icon {
-  font-size: 1.25rem;
-}
-
-.nav-text {
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-</style>

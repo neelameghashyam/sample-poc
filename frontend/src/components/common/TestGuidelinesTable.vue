@@ -19,6 +19,11 @@ interface Props {
   statusLabel?: string;
   actions?: ActionMenuItem[];
   dateColumn?: { key: string; label: string };
+  showTwpColumn?: boolean;
+  showDeadlineColumn?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  searchDebounce?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -31,6 +36,11 @@ const props = withDefaults(defineProps<Props>(), {
   statusLabel: 'Status (Period)',
   actions: () => [{ id: 'edit', label: 'Edit', icon: 'pencil' }],
   dateColumn: () => ({ key: 'lastUpdated', label: 'Last Updated' }),
+  showTwpColumn: true,
+  showDeadlineColumn: false,
+  searchable: false,
+  searchPlaceholder: 'Search...',
+  searchDebounce: 300,
 });
 
 const emit = defineEmits<{
@@ -39,23 +49,27 @@ const emit = defineEmits<{
   'update:filterValues': [values: Record<string, string>];
   filter: [values: Record<string, string>];
   sort: [state: DataTableSortState];
+  search: [value: string];
 }>();
 
-const columns = computed<DataTableColumn[]>(() => [
-  { key: 'reference', label: 'TG Reference', width: '180px', filterable: true },
-  { key: 'name', label: 'Common Name', width: '180px', filterable: true },
-  { key: 'twps', label: 'TWP', width: '140px', filterable: true, filterType: 'select', filterOptions: [
-    { value: 'TWA', label: 'TWA' },
-    { value: 'TWC', label: 'TWC' },
-    { value: 'TWF', label: 'TWF' },
-    { value: 'TWO', label: 'TWO' },
-    { value: 'TWV', label: 'TWV' },
-  ]},
-  { key: 'upovCodes', label: 'UPOV Code(s)', width: '240px', filterable: true },
-  { key: 'leadExpert', label: 'Leading Expert', width: '200px', filterable: true },
-  { key: 'status', label: props.statusLabel, width: '160px', filterable: true, filterType: 'select', filterOptions: props.statusOptions },
-  { key: props.dateColumn.key, label: props.dateColumn.label, width: '140px', sortable: true },
-]);
+const columns = computed<DataTableColumn[]>(() => {
+  const cols: DataTableColumn[] = [
+    { key: 'reference', label: 'TG Reference', width: '180px' },
+    { key: 'name', label: 'Common Name', width: '180px' },
+  ];
+  if (props.showTwpColumn) {
+    cols.push({ key: 'twps', label: 'TWP', width: '140px' });
+  }
+  cols.push({ key: 'leadExpert', label: 'Leading Expert', width: '200px' });
+  if (props.statusOptions.length) {
+    cols.push({ key: 'status', label: props.statusLabel, width: '160px', filterable: true, filterType: 'select', filterOptions: props.statusOptions });
+  }
+  if (props.showDeadlineColumn) {
+    cols.push({ key: 'periodEnd', label: 'Deadline', width: '120px' });
+  }
+  cols.push({ key: props.dateColumn.key, label: props.dateColumn.label, width: '140px', sortable: true });
+  return cols;
+});
 
 const statusLabels: Record<TGStatus, string> = {
   LED: 'LE Draft',
@@ -66,7 +80,7 @@ const statusLabels: Record<TGStatus, string> = {
   ABT: 'Aborted',
   SSD: 'Suspended',
   ARC: 'Archived',
-  STU: 'Submitted',
+  STU: 'Sent to UPOV',
   DEL: 'Deleted',
 };
 
@@ -105,7 +119,12 @@ function toggleFilters(colKey?: string) {
   dataTableRef.value?.toggleFilters(colKey);
 }
 
-defineExpose({ toggleFilters });
+function focusSearch() {
+  const input = dataTableRef.value?.$el?.querySelector('.data-table__search input') as HTMLInputElement | null;
+  input?.focus();
+}
+
+defineExpose({ toggleFilters, focusSearch });
 
 function onRowClick(row: Record<string, any>) {
   emit('select', row.id);
@@ -125,22 +144,21 @@ function onRowClick(row: Record<string, any>) {
     filter-mode="remote"
     :filter-values="filterValues"
     :sort-state="sortState"
+    :searchable="searchable"
+    :search-placeholder="searchPlaceholder"
+    :search-debounce="searchDebounce"
     empty-message="No test guidelines found."
     @row-click="onRowClick"
     @update:filter-values="(vals: Record<string, string>) => emit('update:filterValues', vals)"
     @filter="(vals: Record<string, string>) => emit('filter', vals)"
     @sort="(state: DataTableSortState) => emit('sort', state)"
+    @search="(value: string) => emit('search', value)"
   >
     <template #cell-reference="{ row, filter }">
       <RouterLink :to="`/admin/test-guidelines/${row.id}`" class="tg-link" @click.stop>
         <span v-if="filter" v-html="highlightText(row.reference, filter)" />
         <template v-else>{{ row.reference }}</template>
       </RouterLink>
-    </template>
-
-    <template #cell-upovCodes="{ row, filter }">
-      <span v-if="filter" v-html="highlightText((row.upovCodes || []).join(', '), filter)" />
-      <template v-else>{{ (row.upovCodes || []).join(', ') }}</template>
     </template>
 
     <template #cell-twps="{ row }">
@@ -170,10 +188,14 @@ function onRowClick(row: Record<string, any>) {
           :label="statusLabels[row.status as TGStatus] || row.status"
           :variant="statusVariants[row.status as TGStatus] || 'neutral'"
         />
-        <span v-if="row.periodStart || row.periodEnd" class="status-period">
+        <span v-if="!showDeadlineColumn && (row.periodStart || row.periodEnd)" class="status-period">
           ({{ formatDate(row.periodStart) }} – {{ formatDate(row.periodEnd) }})
         </span>
       </div>
+    </template>
+
+    <template #cell-periodEnd="{ row }">
+      {{ formatDate(row.periodEnd) }}
     </template>
 
     <template #cell-lastUpdated="{ row }">

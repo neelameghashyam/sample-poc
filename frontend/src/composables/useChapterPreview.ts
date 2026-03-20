@@ -2,6 +2,18 @@ import { ref, onMounted } from 'vue';
 import { useEditorStore } from '@/stores/editor';
 import { editorApi } from '@/services/editor-api';
 
+/**
+ * Composable for chapter preview functionality
+ * Handles loading, refreshing, and error states for chapter previews
+ * 
+ * @param chapterNumber - The chapter number (e.g., '01', '02', '07')
+ * @returns Preview state and control functions
+ * 
+ * @example
+ * ```typescript
+ * const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('01');
+ * ```
+ */
 export function useChapterPreview(chapterNumber: string) {
   const store = useEditorStore();
   
@@ -9,6 +21,10 @@ export function useChapterPreview(chapterNumber: string) {
   const previewLoading = ref(false);
   const previewError = ref<string | null>(null);
 
+  /**
+   * True when the content has changed since the last preview load.
+   * Cleared automatically when a refresh completes successfully.
+   */
   const needsRefresh = ref(false);
 
   /**

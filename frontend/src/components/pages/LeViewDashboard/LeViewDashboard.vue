@@ -151,7 +151,7 @@ function goPrevious() {
 }
 
 function backToDashboard() {
-  router.push({ name: 'dashboard-active' });
+  router.push({ name: 'documents-drafts' });
 }
 </script>
 

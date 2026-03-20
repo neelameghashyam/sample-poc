@@ -51,7 +51,7 @@ function cancelRedirect(): void {
 
 async function handleDevLogin(): Promise<void> {
   await authStore.devLogin();
-  router.push('/dashboard');
+  router.push('/documents');
 }
 </script>
 

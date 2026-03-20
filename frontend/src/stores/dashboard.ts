@@ -10,10 +10,17 @@ import type {
   IeComment,
 } from '@/types';
 
-export type DashboardTab = 'active' | 'adopted' | 'archived';
+export type DashboardTab = 'active' | 'adopted' | 'archived' | 'submitted' | 'aborted';
+
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+}
 
 export const useDashboardStore = defineStore('dashboard', () => {
   const testGuidelines = ref<TestGuidelineListItem[]>([]);
+  const meta = ref<PaginationMeta>({ page: 1, limit: 20, total: 0 });
   const stats = ref<DashboardStats>({
     total: 0,
     draft: 0,
@@ -22,8 +29,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
     active: 0,
     adopted: 0,
     archive: 0,
+    pendingRequests: 0,
   });
   const loading = ref(false);
+  const statsLoading = ref(false);
   const error = ref<string | null>(null);
 
   const activeTab = ref<DashboardTab>('active');
@@ -41,18 +50,21 @@ export const useDashboardStore = defineStore('dashboard', () => {
     archive: stats.value.archive,
   }));
 
-  async function fetchTestGuidelines(): Promise<void> {
+  async function fetchTestGuidelines(params: Record<string, string | number> = {}): Promise<void> {
     fetchAbortController?.abort();
     fetchAbortController = new AbortController();
 
     loading.value = true;
     error.value = null;
     try {
-      const url = `/api/test-guidelines?tab=${activeTab.value}`;
-      const response = await api.get<TestGuidelinesResponse>(url, {
+      const response = await api.get<TestGuidelinesResponse & { meta?: PaginationMeta }>('/api/test-guidelines', {
+        params: { tab: activeTab.value, ...params },
         signal: fetchAbortController.signal,
       });
       testGuidelines.value = response.data.items || [];
+      if (response.data.meta) {
+        meta.value = response.data.meta;
+      }
     } catch (err) {
       if (axios.isCancel(err)) return;
       error.value = err instanceof Error ? err.message : 'Unknown error';
@@ -63,11 +75,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
   }
 
   async function fetchStats(): Promise<void> {
+    statsLoading.value = true;
     try {
       const response = await api.get<DashboardStats>('/api/dashboard/stats');
       stats.value = response.data;
     } catch (err) {
       console.error('Failed to fetch stats:', err);
+    } finally {
+      statsLoading.value = false;
     }
   }
 
@@ -121,9 +136,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
   return {
     testGuidelines,
+    meta,
     tabCounts,
     stats,
     loading,
+    statsLoading,
     error,
     activeTab,
     selectedTgId,

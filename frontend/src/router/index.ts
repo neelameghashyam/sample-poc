@@ -12,23 +12,49 @@ declare module 'vue-router' {
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/dashboard/active',
+    redirect: '/documents/drafts',
   },
   {
-    path: '/dashboard',
-    component: () => import('@/views/dashboard/DashboardLayout.vue'),
+    path: '/documents',
+    component: () => import('@/views/documents/DocumentsLayout.vue'),
     meta: { requiresAuth: true, requiresAccess: true },
     children: [
-      { path: '', redirect: '/dashboard/active' },
-      { path: 'active', name: 'dashboard-active', component: () => import('@/views/dashboard/DashboardView.vue') },
-      { path: 'adopted', name: 'dashboard-adopted', component: () => import('@/views/dashboard/AdoptedView.vue'), meta: { requiresAdmin: true } },
-      { path: 'archived', name: 'dashboard-archived', component: () => import('@/views/dashboard/ArchivedView.vue') },
+      { path: '', redirect: '/documents/drafts' },
+      { path: 'drafts', name: 'documents-drafts', component: () => import('@/views/documents/DraftsView.vue') },
+      { path: 'adopted', name: 'documents-adopted', component: () => import('@/views/documents/AdoptedView.vue'), meta: { requiresAdmin: true } },
+      { path: 'archived', name: 'documents-archived', component: () => import('@/views/documents/ArchivedView.vue') },
+      { path: 'submitted', name: 'documents-submitted', component: () => import('@/views/documents/SubmittedView.vue'), meta: { requiresAdmin: true } },
+      { path: 'aborted', name: 'documents-aborted', component: () => import('@/views/documents/AbortedView.vue'), meta: { requiresAdmin: true } },
     ],
   },
   {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('@/views/admin/UsersView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, requiresAccess: true },
+  },
+  {
+    path: '/admin/settings/tg-management',
+    name: 'settings-tg-management',
+    component: () => import('@/views/admin/settings/TgManagementView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, requiresAccess: true },
+  },
+  {
+    path: '/admin/settings/user-assignments',
+    name: 'settings-user-assignments',
+    component: () => import('@/views/admin/settings/UserAssignmentsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, requiresAccess: true },
+  },
+  {
+    path: '/admin/settings/technical-bodies',
+    name: 'settings-technical-bodies',
+    component: () => import('@/views/admin/settings/TechnicalBodiesView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, requiresAccess: true },
+  },
+  {
+    path: '/admin/settings/asw-data',
+    name: 'settings-asw-data',
+    component: () => import('@/views/admin/settings/AswDataView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, requiresAccess: true },
   },
   {
@@ -86,7 +112,7 @@ router.beforeEach(async (to, _from, next) => {
   } else if (to.meta.requiresAccess && (authStore.needsAccessRequest || authStore.isPendingApproval)) {
     next({ name: 'access-request' });
   } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next({ name: 'dashboard-active' });
+    next({ name: 'documents-drafts' });
   } else {
     next();
   }

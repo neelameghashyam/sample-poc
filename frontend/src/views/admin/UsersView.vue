@@ -1,36 +1,21 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAdminUsersStore } from '@/stores/admin-users';
 import { useAuthStore } from '@/stores/auth';
 import {
-  Tabs, DataTable, Button, Chip, StatusBadge,
-  ActionMenu, Modal, Select, Alert, PaginationNav,
+  PageHeader, DataTable, Button, Chip, PaginationNav, StatCard,
+  ActionMenu, Modal, Select, ConfirmDialog, useConfirmDialog,
 } from 'upov-ui';
-import type { TabItem, DataTableColumn, ActionMenuItem, SelectOption, DataTableSortState } from 'upov-ui';
+import type { DataTableColumn, ActionMenuItem, SelectOption, DataTableSortState } from 'upov-ui';
 import type { AdminUser } from '@/types';
 
 const store = useAdminUsersStore();
 const authStore = useAuthStore();
-const activeTab = ref('pending');
+const router = useRouter();
+const { confirm } = useConfirmDialog();
 
-const tabs: TabItem[] = [
-  { id: 'pending', label: 'Pending Requests' },
-  { id: 'all', label: 'All Users' },
-];
-
-const tabCounts = computed<Record<string, number | null>>(() => ({
-  pending: store.pendingUsers.length,
-  all: null,
-}));
-
-function onTabChange(tab: TabItem) {
-  activeTab.value = tab.id;
-  if (tab.id === 'all' && store.allUsers.length === 0) {
-    store.fetchAllUsers();
-  }
-}
-
-// Pending tab columns
+// Pending requests columns
 const pendingColumns: DataTableColumn[] = [
   { key: 'fullName', label: 'Name', width: '200px' },
   { key: 'email', label: 'Email', width: '240px' },
@@ -39,78 +24,68 @@ const pendingColumns: DataTableColumn[] = [
   { key: 'actions', label: '', width: '180px' },
 ];
 
-// All Users tab columns
-const allUsersColumns: DataTableColumn[] = [
-  { key: 'userName', label: 'User Name', width: '160px', filterable: true },
-  { key: 'fullName', label: 'Full Name', width: '200px', filterable: true },
-  { key: 'email', label: 'Email', width: '240px', filterable: true },
-  { key: 'roleCode', label: 'Role', width: '120px' },
+// User table columns per role
+const baseColumns: DataTableColumn[] = [
+  { key: 'userName', label: 'User Name', width: '160px' },
+  { key: 'fullName', label: 'Full Name', width: '200px' },
+  { key: 'email', label: 'Email', width: '240px' },
   { key: 'officeName', label: 'Organization/Country', width: '180px' },
-  { key: 'twps', label: 'TWPs', width: '160px' },
-  { key: 'leTgNames', label: 'LE of TG', width: '200px' },
-  { key: 'lastUpdated', label: 'Last Login', width: '120px', sortable: true },
-  { key: 'actions', label: '', width: '60px' },
 ];
 
-// Filtering, Sorting + Pagination
-const currentPage = ref(1);
-const itemsPerPage = 20;
-const filterValues = ref<Record<string, string>>({});
-const sortState = ref<DataTableSortState>({ key: '', direction: null });
-
-const filteredUsers = computed(() => {
-  const filters = filterValues.value;
-  const keys = Object.keys(filters).filter((k) => filters[k]);
-  if (keys.length === 0) return store.allUsers;
-  return store.allUsers.filter((row) =>
-    keys.every((key) => {
-      const cell = String((row as any)[key] ?? '').toLowerCase();
-      return cell.includes(filters[key].toLowerCase());
-    }),
-  );
+const userColumns = computed<DataTableColumn[]>(() => {
+  const cols = [...baseColumns];
+  if (store.role === 'EXP') {
+    cols.push({ key: 'leTgNames', label: 'Leading Expert of', width: '200px' });
+  }
+  cols.push({ key: 'lastUpdated', label: 'Last Login', width: '120px', sortable: true });
+  cols.push({ key: 'actions', label: '', width: '48px' });
+  return cols;
 });
 
-const sortedUsers = computed(() => {
-  const { key, direction } = sortState.value;
-  if (!key || !direction) return filteredUsers.value;
-  return [...filteredUsers.value].sort((a, b) => {
-    const aVal = (a as any)[key] ?? '';
-    const bVal = (b as any)[key] ?? '';
-    const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-    return direction === 'asc' ? cmp : -cmp;
-  });
+// Sort state — driven by store
+const sortState = computed<DataTableSortState>(() => ({
+  key: store.sort,
+  direction: store.sort ? store.order : null,
+}));
+
+const roleCards = [
+  { role: 'all', label: 'All' },
+  { role: 'EXP', label: 'Experts' },
+  { role: 'TRN', label: 'Translators' },
+  { role: 'ADM', label: 'Admins' },
+];
+
+const searchPlaceholder = computed(() => {
+  const card = roleCards.find((c) => c.role === store.role);
+  return `Search ${card?.label.toLowerCase() ?? 'all'}...`;
 });
 
-const pagedUsers = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  return sortedUsers.value.slice(start, start + itemsPerPage);
+// Hash ↔ role sync
+const hashToRole: Record<string, string> = Object.fromEntries(
+  roleCards.map((c) => [c.label.toLowerCase(), c.role]),
+);
+const roleToHash: Record<string, string> = Object.fromEntries(
+  roleCards.map((c) => [c.role, c.label.toLowerCase()]),
+);
+
+function roleFromHash(): string {
+  const hash = window.location.hash.slice(1);
+  return hashToRole[hash] || 'all';
+}
+
+watch(() => store.role, (r) => {
+  router.replace({ hash: `#${roleToHash[r] || 'all'}` });
 });
 
-function onFilter(values: Record<string, string>) {
-  filterValues.value = values;
-  currentPage.value = 1;
+function onCardClick(role: string) {
+  store.selectRole(role);
 }
 
 function onSort(state: DataTableSortState) {
-  sortState.value = state;
-  currentPage.value = 1;
+  if (state.direction) {
+    store.setSort(state.key, state.direction);
+  }
 }
-
-function onPageChange(page: number) {
-  currentPage.value = page;
-}
-
-const roleVariant: Record<string, 'info' | 'success' | 'warning'> = {
-  ADM: 'info',
-  EXP: 'success',
-  TRN: 'warning',
-};
-
-const roleLabels: Record<string, string> = {
-  ADM: 'Admin',
-  EXP: 'Expert',
-  TRN: 'Translator',
-};
 
 const roleOptions: SelectOption[] = [
   { value: 'ADM', label: 'Admin' },
@@ -130,10 +105,12 @@ function formatDate(value: string | null) {
   });
 }
 
-// Pending tab actions
+// Pending actions
 async function handleApprove(id: number) {
   try {
     await store.approveUser(id);
+    await store.fetchRoleCounts();
+    await store.loadUsers();
   } catch {
     // Error is logged in store
   }
@@ -164,6 +141,8 @@ async function confirmRoleChange() {
   roleUpdating.value = true;
   try {
     await store.updateUserRole(roleModalUser.value.id, selectedRole.value);
+    await store.fetchRoleCounts();
+    await store.loadUsers();
     showRoleModal.value = false;
   } catch (err) {
     console.error('Failed to update role:', err);
@@ -172,157 +151,162 @@ async function confirmRoleChange() {
   }
 }
 
-// Delete modal
-const showDeleteModal = ref(false);
-const deleteModalUser = ref<AdminUser | null>(null);
-const deleteError = ref('');
-const deleting = ref(false);
-
-function openDeleteModal(user: AdminUser) {
-  deleteModalUser.value = user;
+// Delete user
+async function deleteUser(user: AdminUser) {
   if (user.leTgNames) {
     const count = user.leTgNames.split('||').length;
-    deleteError.value = `Cannot delete user assigned as Leading Expert to ${count} test guideline(s). Remove LE assignments first.`;
-  } else {
-    deleteError.value = '';
+    await confirm({
+      title: 'Cannot Delete User',
+      message: `${user.fullName} is assigned as Leading Expert to ${count} test guideline(s). Remove LE assignments first.`,
+      confirmLabel: 'OK',
+      variant: 'primary',
+    });
+    return;
   }
-  showDeleteModal.value = true;
-}
 
-async function confirmDelete() {
-  if (!deleteModalUser.value) return;
-  deleting.value = true;
-  deleteError.value = '';
+  const ok = await confirm({
+    title: 'Delete User',
+    message: `Are you sure you want to remove access for ${user.fullName}? This action cannot be undone.`,
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  });
+  if (!ok) return;
   try {
-    await store.deleteUser(deleteModalUser.value.id);
-    showDeleteModal.value = false;
+    await store.deleteUser(user.id);
+    await store.fetchRoleCounts();
   } catch (err: any) {
-    const msg = err?.response?.data?.error?.message;
-    deleteError.value = msg || 'Failed to delete user.';
-  } finally {
-    deleting.value = false;
+    console.error('Failed to delete user:', err);
   }
 }
 
 function onActionSelect(item: ActionMenuItem, user: AdminUser) {
-  if (item.id === 'change-role') {
-    openRoleModal(user);
-  } else if (item.id === 'delete') {
-    openDeleteModal(user);
+  if (item.id === 'change-role') openRoleModal(user);
+  if (item.id === 'delete') deleteUser(user);
+}
+
+const tableRef = ref<InstanceType<typeof DataTable> | null>(null);
+
+function onKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    const input = tableRef.value?.$el?.querySelector('.data-table__search input') as HTMLInputElement | null;
+    if (input) {
+      e.preventDefault();
+      input.focus();
+    }
   }
 }
 
 onMounted(() => {
   store.fetchPendingUsers();
+  store.fetchRoleCounts();
+  store.selectRole(roleFromHash());
+  document.addEventListener('keydown', onKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown);
 });
 </script>
 
 <template>
   <div class="users-view">
-    <div class="table-section">
-    <Tabs :tabs="tabs" :active-tab-id="activeTab" @tab-change="onTabChange">
-      <template #tab-label="{ tab }">
-        {{ tab.label }} <span v-if="tabCounts[tab.id] != null" class="tab-sub">({{ tabCounts[tab.id] }})</span>
-      </template>
-    </Tabs>
+    <PageHeader
+      title="Users"
+      subtitle="Manage user access and roles"
+    />
 
-    <!-- Pending Requests Tab -->
-    <div v-if="activeTab === 'pending'" class="tab-content">
-      <DataTable
-        :columns="pendingColumns"
-        :rows="store.pendingUsers"
-        row-key="id"
-        :loading="store.loading"
-        empty-message="No pending access requests."
-      >
-        <template #cell-twps="{ row }">
-          <div class="twp-chips">
-            <Chip
-              v-for="code in (row.twps || '').split(',')"
-              :key="code"
-              :label="code.trim()"
-              size="small"
-              :removable="false"
-              variant="tonal"
-            />
-          </div>
-        </template>
+    <!-- Pending Requests -->
+    <div v-if="store.pendingUsers.length" class="section">
+      <h3 class="section-title">Pending Requests <span class="section-count">({{ store.pendingUsers.length }})</span></h3>
+      <div>
+        <DataTable
+          :columns="pendingColumns"
+          :rows="store.pendingUsers"
+          row-key="id"
+          :loading="store.loading"
+          empty-message="No pending access requests."
+        >
+          <template #cell-twps="{ row }">
+            <div class="twp-chips">
+              <Chip
+                v-for="code in (row.twps || '').split(',')"
+                :key="code"
+                :label="code.trim()"
+                size="small"
+                :removable="false"
+                variant="tonal"
+              />
+            </div>
+          </template>
 
-        <template #cell-actions="{ row }">
-          <div class="action-buttons">
-            <Button type="primary" size="small" @click.stop="handleApprove(row.id)">
-              Approve
-            </Button>
-            <Button type="secondary" size="small" @click.stop="handleReject(row.id)">
-              Reject
-            </Button>
-          </div>
-        </template>
-      </DataTable>
+          <template #cell-actions="{ row }">
+            <div class="action-buttons">
+              <Button type="primary" size="xs" @click.stop="handleApprove(row.id)">Approve</Button>
+              <Button type="danger" size="xs" @click.stop="handleReject(row.id)">Reject</Button>
+            </div>
+          </template>
+        </DataTable>
+      </div>
     </div>
 
-    <!-- All Users Tab -->
-    <div v-else class="tab-content">
-      <DataTable
-        :columns="allUsersColumns"
-        :rows="pagedUsers"
-        row-key="id"
-        :loading="store.loadingAll"
-        empty-message="No users found."
-        filter-mode="remote"
-        :filter-values="filterValues"
-        @update:filter-values="filterValues = $event"
-        @filter="onFilter"
-        :sort-state="sortState"
-        @sort="onSort"
-      >
-        <template #cell-roleCode="{ row }">
-          <StatusBadge
-            :label="roleLabels[row.roleCode] || row.roleCode"
-            :variant="roleVariant[row.roleCode] || 'neutral'"
-          />
-        </template>
-
-        <template #cell-twps="{ row }">
-          <div v-if="row.twps" class="twp-chips">
-            <Chip
-              v-for="code in row.twps.split(',')"
-              :key="code"
-              :label="code.trim()"
-              size="small"
-              :removable="false"
-              variant="tonal"
-            />
-          </div>
-        </template>
-
-        <template #cell-leTgNames="{ row }">
-          <span v-if="row.leTgNames">{{ row.leTgNames.split('||').join(', ') }}</span>
-        </template>
-
-        <template #cell-lastUpdated="{ row }">
-          {{ formatDate(row.lastUpdated) }}
-        </template>
-
-        <template #cell-actions="{ row }">
-          <ActionMenu
-            v-if="row.userName?.toUpperCase() !== authStore.user?.username?.toUpperCase()"
-            :items="actionMenuItems"
-            @select="(item: ActionMenuItem) => onActionSelect(item, row)"
-          />
-        </template>
-
-        <template #pagination>
-          <PaginationNav
-            :current-page="currentPage"
-            :total-items="sortedUsers.length"
-            :items-per-page="itemsPerPage"
-            @page-change="onPageChange"
-          />
-        </template>
-      </DataTable>
+    <!-- Role Cards -->
+    <div class="stat-cards">
+      <StatCard
+        v-for="card in roleCards"
+        :key="card.role"
+        :label="card.label"
+        :count="card.role === 'all' ? (store.roleCounts.EXP + store.roleCounts.TRN + store.roleCounts.ADM) : (store.roleCounts[card.role] || 0)"
+        :active="store.role === card.role"
+        :loading="store.countsLoading"
+        @click="onCardClick(card.role)"
+      />
     </div>
 
+    <!-- Users Table -->
+    <div class="section">
+      <div class="users-table" :class="{ 'is-refreshing': store.loadingUsers && store.users.length > 0 }">
+        <DataTable
+          ref="tableRef"
+          :columns="userColumns"
+          :rows="store.users"
+          row-key="id"
+          :loading="store.loadingUsers && store.users.length === 0"
+          :sort-state="sortState"
+          searchable
+          :search-placeholder="searchPlaceholder"
+          :search-debounce="300"
+          hoverable
+          empty-message="No users found."
+          @sort="onSort"
+          @search="store.setSearch"
+        >
+          <template #cell-leTgNames="{ row }">
+            <span v-if="row.leTgNames" class="le-tg-list">
+              <span v-for="name in row.leTgNames.split('||').slice(0, 3)" :key="name" class="le-tg-item">{{ name }}</span>
+              <span v-if="row.leTgNames.split('||').length > 3" class="le-tg-more">+{{ row.leTgNames.split('||').length - 3 }} more</span>
+            </span>
+          </template>
+          <template #cell-lastUpdated="{ row }">
+            {{ formatDate(row.lastUpdated) }}
+          </template>
+          <template #cell-actions="{ row }">
+            <ActionMenu
+              v-if="row.userName?.toUpperCase() !== authStore.user?.username?.toUpperCase()"
+              :items="actionMenuItems"
+              @select="(item: ActionMenuItem) => onActionSelect(item, row)"
+            />
+          </template>
+          <template #pagination>
+            <PaginationNav
+              v-if="store.meta.total > store.meta.limit"
+              :current-page="store.meta.page"
+              :total-items="store.meta.total"
+              :items-per-page="store.meta.limit"
+              @page-change="store.setPage"
+            />
+          </template>
+        </DataTable>
+      </div>
     </div>
 
     <!-- Change Role Modal -->
@@ -350,34 +334,7 @@ onMounted(() => {
       </template>
     </Modal>
 
-    <!-- Delete Confirmation Modal -->
-    <Modal v-model:open="showDeleteModal" title="Delete User" max-width="480px">
-      <template v-if="deleteModalUser">
-        <Alert v-if="deleteError" variant="error" title="Cannot delete user">
-          {{ deleteError }}
-        </Alert>
-        <p v-else>
-          Are you sure you want to remove the access for <strong>{{ deleteModalUser.fullName }}</strong>?
-          This action cannot be undone.
-        </p>
-      </template>
-      <template #footer>
-        <template v-if="deleteError">
-          <Button type="primary" size="small" @click="showDeleteModal = false">OK</Button>
-        </template>
-        <template v-else>
-          <Button type="secondary" size="small" @click="showDeleteModal = false">Cancel</Button>
-          <Button
-            type="danger"
-            size="small"
-            :disabled="deleting"
-            @click="confirmDelete"
-          >
-            {{ deleting ? 'Deleting...' : 'Delete' }}
-          </Button>
-        </template>
-      </template>
-    </Modal>
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -385,13 +342,43 @@ onMounted(() => {
 .users-view {
   max-width: 1400px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.table-section {
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.section-count {
+  font-weight: 400;
+}
+
+.users-view :deep(.data-table__wrapper) {
   background: var(--color-bg-white);
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+}
+
+.users-table.is-refreshing :deep(.data-table__wrapper) {
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+
+.stat-cards {
+  display: flex;
+  gap: 16px;
+}
+
+.stat-cards :deep(.stat-card) {
+  flex: 1;
 }
 
 .twp-chips {
@@ -402,8 +389,30 @@ onMounted(() => {
 
 .action-buttons {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
 }
 
+.modal-label {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
 
+.le-tg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+}
+
+.le-tg-item {
+  white-space: nowrap;
+}
+
+.le-tg-more {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #999);
+  font-style: italic;
+}
 </style>

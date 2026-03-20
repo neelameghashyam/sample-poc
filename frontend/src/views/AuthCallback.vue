@@ -36,7 +36,7 @@ onMounted(async () => {
     } else {
       const redirect = (route.query.redirect as string)
         || sessionStorage.getItem('auth_redirect')
-        || '/dashboard';
+        || '/documents';
       sessionStorage.removeItem('auth_redirect');
       router.push(redirect);
     }

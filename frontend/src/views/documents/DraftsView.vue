@@ -1,23 +1,46 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useDashboardStore } from '@/stores/dashboard';
-import { SidePanelLayout, SidePanel, Spinner, Toggle } from 'upov-ui';
+import { SidePanel, PaginationNav, Spinner, Toggle, StatCard } from 'upov-ui';
 import type { DataTableSortState, TabItem } from 'upov-ui';
 import type { IeComment } from '@/types';
 import TestGuidelinesTable from '@/components/common/TestGuidelinesTable.vue';
 
 const store = useDashboardStore();
+const router = useRouter();
 const tableRef = ref<InstanceType<typeof TestGuidelinesTable> | null>(null);
 
 function onKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     e.preventDefault();
-    tableRef.value?.toggleFilters('name');
+    tableRef.value?.focusSearch();
   }
 }
 
-const filterValues = ref<Record<string, string>>({});
-const sortState = ref<DataTableSortState>({ key: '', direction: null });
+// TWP cards
+const twpCards = [
+  { code: 'all', label: 'All' },
+  { code: 'TWA', label: 'TWA' },
+  { code: 'TWF', label: 'TWF' },
+  { code: 'TWO', label: 'TWO' },
+  { code: 'TWV', label: 'TWV' },
+];
+function twpFromHash(): string {
+  const hash = window.location.hash.slice(1).toLowerCase();
+  const match = twpCards.find(c => c.code.toLowerCase() === hash);
+  return match?.code || 'all';
+}
+const activeTwp = ref(twpFromHash());
+
+watch(activeTwp, (code) => {
+  router.replace({ hash: `#${code.toLowerCase()}` });
+});
+
+// Server-side state
+const sortState = ref<DataTableSortState>({ key: 'lastUpdated', direction: 'desc' });
+const search = ref('');
+const searchPlaceholder = computed(() => `Search ${twpCards.find(c => c.code === activeTwp.value)?.label ?? 'All'}...`);
 
 const statusOptions = [
   { value: 'LED', label: 'LE Draft' },
@@ -26,6 +49,53 @@ const statusOptions = [
   { value: 'LES', label: 'LE Signed Off' },
 ];
 
+const filterValues = ref<Record<string, string>>({});
+
+function buildParams() {
+  const params: Record<string, string | number> = {
+    page: store.meta.page,
+    limit: store.meta.limit,
+  };
+  if (search.value) params.search = search.value;
+  if (activeTwp.value && activeTwp.value !== 'all') params.twp = activeTwp.value;
+  if (sortState.value.direction) params.order = sortState.value.direction;
+  if (filterValues.value.status) params.status_filter = filterValues.value.status;
+  return params;
+}
+
+function load() {
+  store.fetchTestGuidelines(buildParams());
+}
+
+function onSearch(value: string) {
+  search.value = value;
+  store.meta.page = 1;
+  load();
+}
+
+function onSort(state: DataTableSortState) {
+  sortState.value = state;
+  store.meta.page = 1;
+  load();
+}
+
+function onFilter(values: Record<string, string>) {
+  filterValues.value = values;
+  store.meta.page = 1;
+  load();
+}
+
+function onPageChange(page: number) {
+  store.meta.page = page;
+  load();
+}
+
+watch(activeTwp, () => {
+  store.meta.page = 1;
+  load();
+});
+
+// Side panel
 const panelTabs: TabItem[] = [
   { label: 'Details', id: 'details' },
   { label: 'IE Comments', id: 'comments' },
@@ -60,52 +130,6 @@ const groupedComments = computed<CommentGroup[]>(() => {
   return Array.from(map.entries()).map(([title, comments]) => ({ title, comments }));
 });
 
-const filteredItems = computed(() => {
-  const filters = filterValues.value;
-  const keys = Object.keys(filters).filter((k) => filters[k]);
-  if (keys.length === 0) return store.testGuidelines;
-  return store.testGuidelines.filter((row) =>
-    keys.every((key) => {
-      if (key === 'upovCodes') {
-        return row.upovCodes?.some((c) =>
-          c.toLowerCase().includes(filters[key].toLowerCase()),
-        );
-      }
-      if (key === 'twps') {
-        return row.twps
-          ?.split(',')
-          .map((t) => t.trim())
-          .includes(filters[key]);
-      }
-      if (key === 'status') {
-        return row.status === filters[key];
-      }
-      const cell = String((row as any)[key] ?? '').toLowerCase();
-      return cell.includes(filters[key].toLowerCase());
-    }),
-  );
-});
-
-const sortedItems = computed(() => {
-  const { key, direction } = sortState.value;
-  if (!key || !direction) return filteredItems.value;
-  const dir = direction === 'asc' ? 1 : -1;
-  return [...filteredItems.value].sort((a, b) => {
-    const aVal = (a as any)[key] ?? '';
-    const bVal = (b as any)[key] ?? '';
-    const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-    return cmp * dir;
-  });
-});
-
-function onFilter(values: Record<string, string>) {
-  filterValues.value = values;
-}
-
-function onSort(state: DataTableSortState) {
-  sortState.value = state;
-}
-
 function onRowSelect(id: number) {
   store.selectTg(id);
 }
@@ -120,9 +144,12 @@ function formatDate(value: string | null): string {
 }
 
 onMounted(() => {
-  store.setTab('active');
-  store.fetchStats();
   document.addEventListener('keydown', onKeydown);
+  store.activeTab = 'active';
+  store.fetchStats();
+  store.meta.page = 1;
+  store.meta.limit = 9;
+  load();
 });
 
 onUnmounted(() => {
@@ -131,26 +158,57 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <SidePanelLayout :open="panelOpen" panel-width="360px" class="active-layout">
-    <TestGuidelinesTable
-      ref="tableRef"
-      :items="sortedItems"
-      :loading="store.loading"
-      :selected-id="store.selectedTgId"
-      :filter-values="filterValues"
-      :sort-state="sortState"
-      :status-options="statusOptions"
-      @select="onRowSelect"
-      @update:filter-values="filterValues = $event"
-      @filter="onFilter"
-      @sort="onSort"
-    />
+  <div class="active-layout">
+    <div class="active-view" :style="{ marginRight: panelOpen ? '360px' : '0' }">
+      <div class="stat-cards">
+        <StatCard
+          v-for="card in twpCards"
+          :key="card.code"
+          :label="card.label"
+          :count="card.code === 'all' ? (store.stats.active || 0) : (store.stats.twpCounts?.active?.[card.code] || 0)"
+          :active="activeTwp === card.code"
+          :loading="store.statsLoading"
+          @click="activeTwp = card.code"
+        />
+      </div>
 
-    <template #panel>
+      <TestGuidelinesTable
+        ref="tableRef"
+        :items="store.testGuidelines"
+        :loading="store.loading"
+        :selected-id="store.selectedTgId"
+        :filter-values="filterValues"
+        :sort-state="sortState"
+        :status-options="statusOptions"
+        status-label="Status"
+        show-deadline-column
+        searchable
+        :search-placeholder="searchPlaceholder"
+        @select="onRowSelect"
+        @update:filter-values="filterValues = $event"
+        @filter="onFilter"
+        @sort="onSort"
+        @search="onSearch"
+      >
+        <template #pagination>
+          <PaginationNav
+            v-if="store.meta.total > store.meta.limit"
+            :current-page="store.meta.page"
+            :total-items="store.meta.total"
+            :items-per-page="store.meta.limit"
+            @page-change="onPageChange"
+          />
+        </template>
+      </TestGuidelinesTable>
+    </div>
+
+    <Transition name="slide-panel">
       <SidePanel
+        v-if="panelOpen"
         :open="panelOpen"
         :tabs="panelTabs"
-        width="100%"
+        width="360px"
+        class="active-panel"
         @close="onPanelClose"
       >
         <template #tab-label="{ tab }">
@@ -163,6 +221,12 @@ onUnmounted(() => {
           <template v-else-if="store.selectedTgDetail">
             <h4 class="panel-title">{{ store.selectedTgDetail.reference }}</h4>
             <p class="panel-subtitle">{{ store.selectedTgDetail.name }}</p>
+
+            <h5 class="detail-heading">UPOV Code(s)</h5>
+            <p v-if="store.selectedTgDetail.upovCodes?.length" class="detail-value">
+              {{ store.selectedTgDetail.upovCodes.join(', ') }}
+            </p>
+            <p v-else class="detail-value detail-empty">—</p>
 
             <h5 class="detail-heading">Deadlines</h5>
             <table class="detail-table">
@@ -220,13 +284,50 @@ onUnmounted(() => {
           </template>
         </template>
       </SidePanel>
-    </template>
-  </SidePanelLayout>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>
-.active-layout {
-  height: calc(100vh - 64px - 48px - 42px);
+.active-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: margin-right 0.3s ease;
+}
+
+.active-panel {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  height: calc(100vh - 48px);
+  z-index: 10;
+}
+
+.slide-panel-enter-active,
+.slide-panel-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-panel-enter-from,
+.slide-panel-leave-to {
+  transform: translateX(100%);
+}
+
+.stat-cards {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-cards :deep(.stat-card) {
+  flex: 1;
+}
+
+.active-view :deep(.data-table__wrapper) {
+  background: var(--color-bg-white);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .detail-loading {
@@ -269,6 +370,11 @@ onUnmounted(() => {
   font-weight: 500;
   color: var(--color-text-secondary);
   width: 100px;
+}
+
+.detail-value {
+  font-size: 0.875rem;
+  margin: 0;
 }
 
 .detail-empty {

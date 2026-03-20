@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { Modal, Button, ToastContainer, useToast } from 'upov-ui';
 import AppHeader from '@/components/layout/AppHeader.vue';
+import AppSidebar from '@/components/layout/AppSidebar.vue';
 import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
@@ -47,9 +48,12 @@ function relogin() {
   <RouterView v-if="isFullscreenPage" />
   <div v-else class="app-container">
     <AppHeader />
-    <main class="app-content">
-      <RouterView />
-    </main>
+    <div class="app-body">
+      <AppSidebar />
+      <main class="app-content">
+        <RouterView />
+      </main>
+    </div>
   </div>
 
   <ToastContainer />
@@ -70,9 +74,16 @@ function relogin() {
 }
 
 .app-container {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
 }
 
 .app-content {
