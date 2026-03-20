@@ -29,7 +29,10 @@ const botanicalNames = computed(() =>
 const documentName = computed(() => store.tg?.TG_Reference ?? '');
 const lastUpdated = computed(() => {
   if (!store.tg?.TG_lastupdated) return '';
-  return `Saved: ${new Date(store.tg.TG_lastupdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  const date = new Date(store.tg.TG_lastupdated);
+  const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `Saved: ${datePart}, ${timePart}`;
 });
 
 // Initialize upov docs content from store

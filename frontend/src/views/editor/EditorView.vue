@@ -42,11 +42,18 @@ onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
-// Sync active chapter → URL hash
+// Sync active chapter → URL hash, and scroll content area back to top.
+// This covers ALL navigation sources: stepper, footer prev/next, and direct URL.
 watch(() => store.activeChapterIndex, (index) => {
   const chapter = store.chapterList[index];
   if (chapter) {
     router.replace({ hash: `#chapter-${chapter.number}` });
+  }
+  const appContent = document.querySelector<HTMLElement>('.app-content');
+  if (appContent) {
+    appContent.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 });
 
@@ -95,7 +102,7 @@ function backToDashboard() {
 </script>
 
 <template>
-  <div class="editor-root">
+  <div ref="editorRoot" class="editor-root">
     <!-- Back button -->
     <div style="display: flex; align-items: center; justify-content: space-between">
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">Back to TG Dashboard</Button>

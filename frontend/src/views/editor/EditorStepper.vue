@@ -16,7 +16,9 @@ const steps = computed<Step[]>(() =>
 
 function onStepClick(step: Step) {
   const idx = steps.value.findIndex((s) => s.number === step.number);
-  if (idx >= 0) store.goToChapter(idx);
+  if (idx >= 0) {
+    store.goToChapter(idx);
+  }
 }
 
 function onCollapseToggle() {
