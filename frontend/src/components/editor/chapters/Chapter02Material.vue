@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { RadioGroup, RadioOption } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useChapterPreview } from '@/composables/useChapterPreview';
 import { useTinymce } from '@/composables/useTinymce';
@@ -16,11 +15,61 @@ const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, hand
 const data = computed(() => store.chapters['02']);
 
 function onFieldChange(field: string, value: string | null | undefined) {
-  store.autosave('02', field, value);
+  // Merge the updated field into the full chapter 02 snapshot so every PATCH
+  // always carries all existing fields — nothing gets wiped on the BE side.
+  const fullPayload = {
+    ...data.value,
+    [field]: value,
+  };
+  store.autosaveAll('02', fullPayload);
   markDirty();
 }
 
-const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
+const isMushroomVariety = computed(() => store.tgFlags?.isMushroom ?? false);
+
+const seedOptions = [
+  {
+    group: '2.4.1',
+    groupLabel: 'Test Guidelines which only apply to seed-propagated varieties:',
+    options: [
+      {
+        value: 'ASW1(a)',
+        text: 'The seed should meet the minimum requirements for germination, species and analytical purity, health and moisture content, specified by the competent authority. In cases where the seed is to be stored, the germination capacity should be as high as possible and should be stated by the applicant.',
+        tag: 'ASW 1 (a) Alternative 1'
+      },
+      {
+        value: 'ASW1(b)',
+        text: 'The seed should meet the minimum requirements for germination, species and analytical purity, health and moisture content, specified by the competent authority.',
+        tag: 'ASW 1 (a) Alternative 2'
+      }
+    ]
+  },
+  {
+    group: '2.4.2',
+    groupLabel: 'Test Guidelines which apply to seed-propagated varieties as well as other types of varieties:',
+    options: [
+      {
+        value: 'ASW2(a)',
+        text: 'In the case of seed, the seed should meet the minimum requirements for germination, species and analytical purity, health and moisture content, specified by the competent authority. In cases where the seed is to be stored, the germination capacity should be as high as possible and should be stated by the applicant.',
+        tag: 'ASW 1 (b) Alternative 1'
+      },
+      {
+        value: 'ASW2(b)',
+        text: 'In the case of seed, the seed should meet the minimum requirements for germination, species and analytical purity, health and moisture content, specified by the competent authority.',
+        tag: 'ASW 1 (b) Alternative 2'
+      }
+    ]
+  }
+];
+
+// Derive the currently selected option's `value` key by matching stored value
+// (data.SeedQualityReq holds the short key e.g. ASW1(b)Alt1)
+const selectedSeedValue = computed(() => data.value?.SeedQualityReq ?? null);
+
+// Called when a radio is selected — sends the short value key to BE
+function onSeedSelect(opt: { value: string; text: string }) {
+  onFieldChange('SeedQualityReq', opt.value);
+}
 </script>
 
 <template>
@@ -32,9 +81,14 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
   >
     <template #edit>
       <div style="display: flex; flex-direction: column; gap: 12px">
-        <!-- 2.1 Form of material -->
-        <SectionAccordion number="2.1" title="Form of material">
-          <div style="display: flex; flex-direction: column; gap: 16px">
+
+        <!-- 2.2 The material is to be supplied in the form of -->
+        <SectionAccordion number="2.2" title="The material is to be supplied in the form of:">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+              The material is to be supplied in the form of
+              <span style="color: #D32F2F; margin-left: 1px">*</span>
+            </p>
             <Editor
               :model-value="data.Material_Supplied || ''"
               :api-key="apiKey"
@@ -44,9 +98,20 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           </div>
         </SectionAccordion>
 
-        <!-- 2.2 Minimum quantity -->
-        <SectionAccordion number="2.2" title="Minimum quantity of plant material">
-          <div style="display: flex; flex-direction: column; gap: 16px">
+        <!-- 2.3 Minimum quantity of material -->
+        <SectionAccordion
+          number="2.3"
+          :title="isMushroomVariety
+            ? 'The minimum quantity of material, to be supplied by the applicant, should be:'
+            : 'The minimum quantity of plant material, to be supplied by the applicant, should be:'"
+        >
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+              {{ isMushroomVariety
+                ? 'The minimum quantity of material, to be supplied by the applicant, should be'
+                : 'The minimum quantity of plant material, to be supplied by the applicant, should be' }}
+              <span style="color: #D32F2F; margin-left: 1px">*</span>
+            </p>
             <Editor
               :model-value="data.Min_Plant_Material || ''"
               :api-key="apiKey"
@@ -56,20 +121,73 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
           </div>
         </SectionAccordion>
 
-        <!-- 2.3 Seed Quality Requirements -->
-        <SectionAccordion number="2.3" title="Seed Quality Requirements" :open="true">
-          <div style="display: flex; flex-direction: column; gap: 16px">
-            <p style="font-size: 15px; font-weight: 400; color: var(--color-neutral-800); line-height: 19px">Please select one of the options (if applicable).</p>
-            <RadioGroup :model-value="data.SeedQualityReq || ''" direction="vertical"
-              @update:model-value="onFieldChange('SeedQualityReq', $event || null)">
-              <RadioOption v-for="opt in aswOptions" :key="opt.code" :value="opt.code" :label="opt.label" />
-              <RadioOption value="" label="Not applicable" />
-            </RadioGroup>
+        <!-- 2.4 Seed Quality Requirements -->
+        <SectionAccordion number="2.4" title="Seed Quality Requirements" :open="true">
+          <div style="display: flex; flex-direction: column; gap: 20px">
+
+            <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+              Please select one of the options (if applicable).
+            </p>
+
+            <div
+              v-for="group in seedOptions"
+              :key="group.group"
+              style="display: flex; flex-direction: column; gap: 10px"
+            >
+              <!-- Group heading -->
+              <h3 style="font-size: 16px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+                {{ group.group }} {{ group.groupLabel }}
+              </h3>
+
+              <!-- Radio options -->
+              <div
+                v-for="opt in group.options"
+                :key="opt.value"
+                style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer"
+                @click="onSeedSelect(opt)"
+              >
+                <input
+                  type="radio"
+                  :value="opt.value"
+                  :checked="selectedSeedValue === opt.value"
+                  name="seedQualityReq"
+                  style="
+                    flex-shrink: 0;
+                    width: 16px;
+                    height: 16px;
+                    margin-top: 3px;
+                    accent-color: var(--color-primary-600, #2e7d32);
+                    cursor: pointer;
+                  "
+                  @change="onSeedSelect(opt)"
+                />
+                <span style="display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-size: 14px; line-height: 22px; color: var(--color-neutral-800)">
+                    {{ opt.text }}
+                  </span>
+                  <span style="font-size: 12px; color: var(--color-neutral-500); font-style: italic">
+                    {{ opt.tag }}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Deselect -->
+            <div>
+              <button
+                type="button"
+                style="font-size: 13px; color: var(--color-neutral-600); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;"
+                @click="onFieldChange('SeedQualityReq', null)"
+              >
+                Deselect
+              </button>
+            </div>
+
           </div>
         </SectionAccordion>
 
-        <!-- 2.4 Additional info -->
-        <SectionAccordion v-if="data.Material_AddInfo" number="2.4" title="Additional information" :open="false">
+        <!-- Additional information -->
+        <SectionAccordion v-if="data.Material_AddInfo" title="Additional information on required material" :open="false">
           <div style="display: flex; flex-direction: column; gap: 16px">
             <Editor
               :model-value="data.Material_AddInfo || ''"
@@ -79,6 +197,7 @@ const aswOptions = computed(() => store.lookups?.aswOptions?.seedQuality ?? []);
             />
           </div>
         </SectionAccordion>
+
       </div>
     </template>
 
