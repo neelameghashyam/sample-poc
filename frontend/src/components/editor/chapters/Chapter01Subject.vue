@@ -49,7 +49,7 @@ const botanicalNames = computed(() =>
           <!-- Static intro sentence: "These Test Guidelines apply to all varieties of {botanical_name}" -->
           <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px">
             These Test Guidelines apply to all varieties of
-            <strong>{{ botanicalNames  || '…' }}</strong>
+<strong v-html="botanicalNames || '…'" />
           </p>
 
           <!-- Continuation sentence (maps to Sub_OtherInfo / continueSentenceInfo) -->
