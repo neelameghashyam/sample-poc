@@ -29,10 +29,30 @@ const botanicalNames = computed(() =>
 const documentName = computed(() => store.tg?.TG_Reference ?? '');
 const lastUpdated = computed(() => {
   if (!store.tg?.TG_lastupdated) return '';
+  
   const date = new Date(store.tg.TG_lastupdated);
-  const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
-  return `Saved: ${datePart}, ${timePart}`;
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  let relative = '';
+  if (diffSecs < 60) {
+    relative = 'Just now';
+  } else if (diffMins < 60) {
+    relative = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+  } else if (diffHours < 24) {
+    relative = `${diffHours} hr${diffHours > 1 ? 's' : ''} ago`;
+  } else if (diffDays < 30) {
+    relative = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else {
+    // Fallback to full date for older entries
+    relative = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  return `Saved: ${relative}`;
 });
 
 // Initialize upov docs content from store
