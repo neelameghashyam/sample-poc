@@ -22,6 +22,20 @@ function onFieldChange(field: string, value: string | null | undefined) {
 function setRadio(field: string, value: string) {
   onFieldChange(field, value);
 }
+
+// SinglePlant is stored as "first;second" in the DB — helpers to split/join safely
+function getSinglePlantFirst(): string {
+  return data.value?.SinglePlant?.split(';')[0] ?? '';
+}
+function getSinglePlantSecond(): string {
+  return data.value?.SinglePlant?.split(';')[1] ?? '';
+}
+function setSinglePlantFirst(v: string) {
+  onFieldChange('SinglePlant', v + ';' + getSinglePlantSecond());
+}
+function setSinglePlantSecond(v: string) {
+  onFieldChange('SinglePlant', getSinglePlantFirst() + ';' + v);
+}
 </script>
 
 <template>
@@ -32,73 +46,106 @@ function setRadio(field: string, value: string) {
     @refresh="handleRefresh"
   >
     <template #edit>
-      <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 16px">
 
-        <!-- ══════════════════════════════════════════════
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
+          4. Assessment of Distinctness, Uniformity and Stability
+        </h2>
+
+        <!-- ══════════════════════════════════════
              4.1  DISTINCTNESS
-        ══════════════════════════════════════════════ -->
+        ══════════════════════════════════════ -->
         <SectionAccordion number="4.1" title="Distinctness" :open="true">
           <div style="display: flex; flex-direction: column; gap: 20px">
 
-            <!-- Reference link -->
-            <Links :links="[{ text: 'Number of Plants / Parts of Plants to be Examined (for distinctness) (GN 10.2)' }]" />
+            <!-- Right-hand sidebar link from legacy -->
+            <Links :links="[
+              { text: 'Number of Plants / Parts of Plants to be Examined (for distinctness) (GN 10.2)' }
+            ]" />
 
-            <!-- ── 4.1.1  General Recommendations — Hybrid variety guideline ── -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.1.1 General recommendations
+            <!-- ─── 4.1.1  General Recommendations ─── -->
+            <!-- legacy: assessment_4_1_subtitle_1 -->
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
+                General Recommendations
               </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                Does the TG cover hybrid varieties?
-                <span style="color: #D32F2F; margin-left: 2px">*</span>
-              </p>
-              <!-- maps to: IsHybridVariety / assessmentBean.isHybridVarietyGuideline -->
-              <RadioGroup
-                :model-value="data.IsHybridVariety"
-                direction="horizontal"
-                @update:model-value="setRadio('IsHybridVariety', $event)"
-              >
-                <RadioOption value="Y" label="Yes" />
-                <RadioOption value="N" label="No" />
-              </RadioGroup>
 
-              <!-- Conditional: hybrid parent formula question — shown when IsHybridVariety = Y -->
-              <!-- maps to: IsHybridParentFormula / assessmentBean.hybridParentFormula -->
-              <div
-                v-if="data.IsHybridVariety === 'Y'"
-                style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--color-neutral-50); border-radius: 6px; margin-top: 4px"
-              >
-                <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                  In the case of hybrids, is the parent formula used?
-                  <span style="color: #D32F2F; margin-left: 2px">*</span>
-                </p>
+              <!--
+                legacy: assessment_4_1_question_1
+                "Do these Test Guidelines cover hybrid varieties?"
+                JSP path="isHybridVarietyGuideline"  radio name="hvop"
+                ALLOWED_FIELDS key: IsHybridVariety
+              -->
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
+                  Do these Test Guidelines cover hybrid varieties?
+                  <span style="color: #D32F2F"> *</span>
+                </label>
                 <RadioGroup
-                  :model-value="data.IsHybridParentFormula"
+                  :model-value="data.IsHybridVariety"
                   direction="horizontal"
-                  @update:model-value="setRadio('IsHybridParentFormula', $event)"
+                  @update:model-value="setRadio('IsHybridVariety', $event)"
                 >
                   <RadioOption value="Y" label="Yes" />
                   <RadioOption value="N" label="No" />
                 </RadioGroup>
+              </div>
 
-                <!-- ASW 7(a) descriptive text shown when both hybrid = Y and parent formula = Y -->
-                <div
-                  v-if="data.IsHybridParentFormula === 'Y'"
-                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
-                >
-                  To assess distinctness of hybrids, the parent lines and the formula may be used according to the following recommendations:
-                  (i) description of parent lines according to the Test Guidelines;
-                  (ii) check of the originality of the parent lines in comparison with the variety collection;
-                  (iii) check of the originality of the hybrid formula; and
-                  (iv) assessment of the distinctness at the hybrid level for varieties with a similar formula.
-                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 7(a))</a>
+              <!--
+                Nested block — visible when IsHybridVariety = Y
+                legacy: outerBorderInternal div shown via handleHybrid('Y')
+              -->
+              <div
+                v-if="data.IsHybridVariety === 'Y'"
+                style="display: flex; flex-direction: column; gap: 10px; padding: 10px 14px; border-left: 3px solid var(--color-primary-300); background: var(--color-neutral-50); margin-top: 2px"
+              >
+                <!--
+                  legacy: assessment_4_1_subquestion_1
+                  "In the case of hybrids, is the parent formula used?"
+                  JSP path="hybridParentFormula"  radio name="hpfu"
+                  ALLOWED_FIELDS key: IsHybridParentFormula
+                -->
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
+                    In the case of hybrids, is the parent formula used?
+                    <span style="color: #D32F2F"> *</span>
+                  </label>
+                  <RadioGroup
+                    :model-value="data.IsHybridParentFormula"
+                    direction="horizontal"
+                    @update:model-value="setRadio('IsHybridParentFormula', $event)"
+                  >
+                    <RadioOption value="Y" label="Yes" />
+                    <RadioOption value="N" label="No" />
+                  </RadioGroup>
                 </div>
 
-                <!-- Additional info for hybrid distinctness — maps to DistinctnessAddInfo / distinctnessHybridAddInfo -->
-                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px">
-                  <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
-                    Additional distinctness information
-                    <span style="font-size: 12px; font-weight: 400; color: var(--color-neutral-500); margin-left: 6px">(optional)</span>
+                <!--
+                  ASW 7(a) text block — visible when IsHybridParentFormula = Y
+                  legacy: #asw7a_text filled by fetchASW('ASW7_a')
+                  text from: assessment_ASW_7_a property
+                -->
+                <div
+                  v-if="data.IsHybridParentFormula === 'Y'"
+                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.65; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px; white-space: pre-wrap; word-break: break-word"
+                >
+                  To assess distinctness of hybrids, the parent lines and the formula may be used according to the following recommendations:<br><br>
+                  (i) description of parent lines according to the Test Guidelines;<br><br>
+                  (ii) check of the originality of the parent lines in comparison with the variety collection, based on the characteristics in Chapter 7, in order to identify similar parent lines;<br><br>
+                  (iii) check of the originality of the hybrid formula in relation to the hybrids in the variety collection, taking into account the most similar lines; and<br><br>
+                  (iv) assessment of the distinctness at the hybrid level for varieties with a similar formula.
+                  Further guidance is provided in documents TGP/9 "Examining Distinctness" and TGP/8 "Trial Design and Techniques Used in the Examination of Distinctness, Uniformity and Stability".
+                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 7(a))</i></a>
+                </div>
+
+                <!--
+                  Additional info for hybrid distinctness
+                  legacy: distinctnessHybridAddInfo textarea  →  ALLOWED: DistinctnessAddInfo
+                -->
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 2px">
+                  <label style="font-size: 13px; font-weight: 600; color: var(--color-neutral-700)">
+                    Additional information on assessment of distinctness in case of hybrid varieties
+                    <span style="font-weight: 400; color: var(--color-neutral-500)"> (optional)</span>
                   </label>
                   <Editor
                     :model-value="data.DistinctnessAddInfo || ''"
@@ -110,57 +157,82 @@ function setRadio(field: string, value: string) {
               </div>
             </div>
 
-            <!-- ── 4.1.2  Number of plants / parts of plants to be examined ── -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.1.2 Number of plants / parts of plants to be examined
+            <!-- ─── Number of plants / Parts of plants to be Examined ─── -->
+            <!--
+              legacy: assessment_4_1_subtitle_2_plants
+              = "Number of plants / Parts of plants to be Examined"
+            -->
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
+                Number of plants / Parts of plants to be Examined
               </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                Is there more than one method of propagation?
-                <span style="color: #D32F2F; margin-left: 2px">*</span>
-              </p>
-              <!-- maps to: IsOneMethodOfPropogation / assessmentBean.isOneMethodOfPropogation -->
-              <RadioGroup
-                :model-value="data.IsOneMethodOfPropogation"
-                direction="horizontal"
-                @update:model-value="setRadio('IsOneMethodOfPropogation', $event)"
-              >
-                <RadioOption value="Y" label="Yes" />
-                <RadioOption value="N" label="No" />
-              </RadioGroup>
 
-              <!-- When IsOneMethodOfPropogation = N: single plant / parts fields -->
-              <!-- maps to: SinglePlant (format "first;second") and PartsPlant -->
+              <!--
+                legacy: assessment_4_1_question_2
+                "Is there more than one method of propagation?"
+                JSP path="isOneMethodOfPropogation"  radio name="mop"
+                ALLOWED_FIELDS key: IsOneMethodOfPropogation
+              -->
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
+                  Is there more than one method of propagation?
+                  <span style="color: #D32F2F"> *</span>
+                </label>
+                <RadioGroup
+                  :model-value="data.IsOneMethodOfPropogation"
+                  direction="horizontal"
+                  @update:model-value="setRadio('IsOneMethodOfPropogation', $event)"
+                >
+                  <RadioOption value="Y" label="Yes" />
+                  <RadioOption value="N" label="No" />
+                </RadioGroup>
+              </div>
+
+              <!--
+                When NO (single method of propagation):
+                legacy sentence: assessment_4_1_case_part2_one_plants … part4_plants
+                "Unless otherwise indicated, for the purpose of distinctness, all
+                 observations on single plants should be made on [X] plants or parts
+                 taken from each of [Y] plants and any other observations made on all
+                 plants in the test, disregarding any off-type plants."
+                JSP fields: numberOfPlantsFirst → SinglePlant[0]
+                            numberOfPlantsSecond → SinglePlant[1]
+                ALLOWED_FIELDS: SinglePlant (stored as "first;second")
+              -->
               <div
                 v-if="data.IsOneMethodOfPropogation === 'N'"
-                style="display: flex; flex-direction: column; gap: 12px; padding-top: 4px"
+                style="display: flex; flex-direction: column; gap: 10px; padding: 10px 14px; border-left: 3px solid var(--color-primary-300); background: var(--color-neutral-50)"
               >
-                <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+                <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.7; margin: 0">
                   Unless otherwise indicated, for the purpose of distinctness, all observations on single plants should be made on
                   <Input
-                    :model-value="data.SinglePlant?.split(';')[0] || ''"
-                    placeholder="e.g. 20"
+                    :model-value="getSinglePlantFirst()"
+                    placeholder="(number)"
                     size="small"
-                    style="display: inline-block; width: 80px; margin: 0 6px"
-                    @update:model-value="onFieldChange('SinglePlant', $event + ';' + (data.SinglePlant?.split(';')[1] || ''))"
+                    style="display: inline-block; width: 70px; margin: 0 4px"
+                    @update:model-value="setSinglePlantFirst($event)"
                   />
                   plants or parts taken from each of
                   <Input
-                    :model-value="data.SinglePlant?.split(';')[1] || ''"
-                    placeholder="e.g. 2"
+                    :model-value="getSinglePlantSecond()"
+                    placeholder="(number)"
                     size="small"
-                    style="display: inline-block; width: 80px; margin: 0 6px"
-                    @update:model-value="onFieldChange('SinglePlant', (data.SinglePlant?.split(';')[0] || '') + ';' + $event)"
+                    style="display: inline-block; width: 70px; margin: 0 4px"
+                    @update:model-value="setSinglePlantSecond($event)"
                   />
                   plants and any other observations made on all plants in the test, disregarding any off-type plants.
                 </p>
 
-                <!-- Are observations made on parts taken from single plants? -->
-                <!-- maps to: IsPartsOfSinglePlants -->
-                <div style="display: flex; flex-direction: column; gap: 8px">
-                  <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+                <!--
+                  legacy: assessment_4_1_subquestion_2_plants
+                  "Are observations made on parts taken from single plants?"
+                  JSP path="isPartsOfSinglePlants"
+                  ALLOWED_FIELDS key: IsPartsOfSinglePlants
+                -->
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                     Are observations made on parts taken from single plants?
-                  </p>
+                  </label>
                   <RadioGroup
                     :model-value="data.IsPartsOfSinglePlants"
                     direction="horizontal"
@@ -169,53 +241,80 @@ function setRadio(field: string, value: string) {
                     <RadioOption value="Y" label="Yes" />
                     <RadioOption value="N" label="No" />
                   </RadioGroup>
-                  <!-- Parts of plant count — shown when IsPartsOfSinglePlants = Y -->
-                  <!-- maps to: PartsPlant -->
-                  <div v-if="data.IsPartsOfSinglePlants === 'Y'" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
-                    <span style="font-size: 14px; color: var(--color-neutral-800)">
-                      In the case of observations of parts taken from single plants, the number of parts to be taken from each of the plants should be
-                    </span>
+
+                  <!--
+                    ASW 7(b) — visible when IsPartsOfSinglePlants = Y
+                    legacy: assessment_ASW_7_b_part1_plants + numberOfPartsOfPlant input
+                    "In the case of observations of parts taken from single plants,
+                     the number of parts to be taken from each of the plants should be [X]"
+                    JSP field: numberOfPartsOfPlant  →  ALLOWED: PartsPlant
+                  -->
+                  <div
+                    v-if="data.IsPartsOfSinglePlants === 'Y'"
+                    style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.7; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
+                  >
+                    In the case of observations of parts taken from single plants, the number of parts to be taken from each of the plants should be
                     <Input
                       :model-value="data.PartsPlant || ''"
-                      placeholder="e.g. 3"
+                      placeholder="(number)"
                       size="small"
-                      style="width: 80px"
+                      style="display: inline-block; width: 70px; margin: 0 4px"
                       @update:model-value="onFieldChange('PartsPlant', $event)"
                     />
-                    <a href="#" style="color: #496D31; font-size: 12px">(ASW 7(b))</a>
+                    <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 7(b))</i></a>
                   </div>
                 </div>
               </div>
 
-              <!-- When IsOneMethodOfPropogation = Y: per-method propagation rows -->
+              <!--
+                When YES (multiple propagation methods):
+                legacy sentence: assessment_4_1_case_part1 + part2_plants + part3 + part4
+                "In the case of [method], unless otherwise indicated, for the purpose of
+                 distinctness, all observations on single plants should be made on [X] plants
+                 or parts taken from each of [Y] plants …"
+                JSP fields: propogationMethodName, numberOfPlantsFirst, numberOfPlantsSecond
+                            isPartsOfSinglePlants, numberOfPartsOfPlant
+                ALLOWED_FIELDS: SinglePlant, IsPartsOfSinglePlants, PartsPlant
+              -->
               <div
                 v-if="data.IsOneMethodOfPropogation === 'Y'"
-                style="display: flex; flex-direction: column; gap: 12px; padding-top: 4px; font-size: 14px; color: var(--color-neutral-800); line-height: 20px"
+                style="display: flex; flex-direction: column; gap: 10px; padding: 10px 14px; border-left: 3px solid var(--color-primary-300); background: var(--color-neutral-50)"
               >
-                <p style="margin: 0">
-                  In the case of [propagation method], unless otherwise indicated, for the purpose of distinctness, all observations on single plants should be made on
+                <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.7; margin: 0">
+                  In the case of
                   <Input
-                    :model-value="data.SinglePlant?.split(';')[0] || ''"
-                    placeholder="e.g. 20"
+                    :model-value="data.SinglePlant?.split(';')[2] || ''"
+                    placeholder="(propagation method)"
                     size="small"
-                    style="display: inline-block; width: 80px; margin: 0 6px"
-                    @update:model-value="onFieldChange('SinglePlant', $event + ';' + (data.SinglePlant?.split(';')[1] || ''))"
+                    style="display: inline-block; width: 180px; margin: 0 4px"
+                    @update:model-value="
+                      onFieldChange('SinglePlant',
+                        getSinglePlantFirst() + ';' + getSinglePlantSecond() + ';' + $event)
+                    "
+                  />
+                  , unless otherwise indicated, for the purpose of distinctness, all observations on single plants should be made on
+                  <Input
+                    :model-value="getSinglePlantFirst()"
+                    placeholder="(number)"
+                    size="small"
+                    style="display: inline-block; width: 70px; margin: 0 4px"
+                    @update:model-value="setSinglePlantFirst($event)"
                   />
                   plants or parts taken from each of
                   <Input
-                    :model-value="data.SinglePlant?.split(';')[1] || ''"
-                    placeholder="e.g. 2"
+                    :model-value="getSinglePlantSecond()"
+                    placeholder="(number)"
                     size="small"
-                    style="display: inline-block; width: 80px; margin: 0 6px"
-                    @update:model-value="onFieldChange('SinglePlant', (data.SinglePlant?.split(';')[0] || '') + ';' + $event)"
+                    style="display: inline-block; width: 70px; margin: 0 4px"
+                    @update:model-value="setSinglePlantSecond($event)"
                   />
                   plants and any other observations made on all plants in the test, disregarding any off-type plants.
                 </p>
 
-                <div style="display: flex; flex-direction: column; gap: 8px">
-                  <p style="font-size: 14px; color: var(--color-neutral-800); margin: 0">
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                     Are observations made on parts taken from single plants?
-                  </p>
+                  </label>
                   <RadioGroup
                     :model-value="data.IsPartsOfSinglePlants"
                     direction="horizontal"
@@ -224,18 +323,19 @@ function setRadio(field: string, value: string) {
                     <RadioOption value="Y" label="Yes" />
                     <RadioOption value="N" label="No" />
                   </RadioGroup>
-                  <div v-if="data.IsPartsOfSinglePlants === 'Y'" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
-                    <span style="font-size: 14px; color: var(--color-neutral-800)">
-                      In the case of observations of parts taken from single plants, the number of parts to be taken from each of the plants should be
-                    </span>
+                  <div
+                    v-if="data.IsPartsOfSinglePlants === 'Y'"
+                    style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.7; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
+                  >
+                    In the case of observations of parts taken from single plants, the number of parts to be taken from each of the plants should be
                     <Input
                       :model-value="data.PartsPlant || ''"
-                      placeholder="e.g. 3"
+                      placeholder="(number)"
                       size="small"
-                      style="width: 80px"
+                      style="display: inline-block; width: 70px; margin: 0 4px"
                       @update:model-value="onFieldChange('PartsPlant', $event)"
                     />
-                    <a href="#" style="color: #496D31; font-size: 12px">(ASW 7(b))</a>
+                    <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 7(b))</i></a>
                   </div>
                 </div>
               </div>
@@ -244,37 +344,44 @@ function setRadio(field: string, value: string) {
           </div>
         </SectionAccordion>
 
-        <!-- ══════════════════════════════════════════════
+        <!-- ══════════════════════════════════════
              4.2  UNIFORMITY
-        ══════════════════════════════════════════════ -->
+        ══════════════════════════════════════ -->
         <SectionAccordion number="4.2" title="Uniformity">
           <div style="display: flex; flex-direction: column; gap: 20px">
 
-            <!-- Type of propagation text input -->
-            <!-- maps to: typeOfPropagation / assessmentBean.typeOfPropagation -->
-            <div style="display: flex; flex-direction: column; gap: 8px">
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                Please don't complete the following sentence if it is not applicable. These Test Guidelines have been developed for the examination of
-                <Input
-                  :model-value="data.typeOfPropagation || ''"
-                  placeholder="e.g. self-pollinated varieties"
-                  size="small"
-                  style="display: inline-block; width: 260px; margin: 0 6px"
-                  @update:model-value="onFieldChange('typeOfPropagation', $event)"
-                />
-                . For varieties with other types of propagation the recommendation in the General Introduction and document TGP/13 "Guidance for new types and species", Section 4.5 Testing Uniformity should be followed.
-              </p>
-            </div>
+            <!--
+              legacy: assessment_4_2_part1 + typeOfPropagationInput + assessment_4_2_part2
+              "Please don't complete the following sentence if it is not applicable.
+               These Test Guidelines have been developed for the examination of [___].
+               For varieties with other types of propagation the recommendation in the
+               General Introduction and document TGP/13 … should be followed."
+              JSP path: typeOfPropagation  →  ALLOWED: typeOfPropagation
+            -->
+            <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.7; margin: 0">
+              Please don't complete the following sentence if it is not applicable.
+              These Test Guidelines have been developed for the examination of
+              <Input
+                :model-value="data.typeOfPropagation || ''"
+                placeholder="(variety type)"
+                size="small"
+                style="display: inline-block; width: 220px; margin: 0 4px"
+                @update:model-value="onFieldChange('typeOfPropagation', $event)"
+              />
+              . For varieties with other types of propagation the recommendation in the General Introduction
+              and document TGP/13 "Guidance for new types and species", Section 4.5 Testing Uniformity should be followed.
+            </p>
 
-            <!-- ── 4.2.1  Cross-pollinated varieties ── -->
-            <!-- maps to: IsHybridVarietyGuideline / assessmentBean.isCrossPollinatedVariety -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.2.1 Cross-pollinated varieties
-              </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+            <!-- ── Q1: Cross-pollinated varieties ── -->
+            <!--
+              legacy: assessment_4_2_question_1
+              "Do these Test Guidelines cover cross-pollinated varieties?"
+              JSP path: isCrossPollinatedVariety  →  ALLOWED: IsHybridVarietyGuideline
+            -->
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                 Do these Test Guidelines cover cross-pollinated varieties?
-              </p>
+              </label>
               <RadioGroup
                 :model-value="data.IsHybridVarietyGuideline"
                 direction="horizontal"
@@ -284,9 +391,16 @@ function setRadio(field: string, value: string) {
                 <RadioOption value="N" label="No" />
               </RadioGroup>
 
-              <!-- When cross-pollinated = Y: sub-options -->
-              <!-- maps to: CrossPolinattedVarieties / assessmentBean.crossPolinattedVarieties -->
-              <div v-if="data.IsHybridVarietyGuideline === 'Y'" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: var(--color-neutral-50); border-radius: 6px">
+              <!-- Sub-options — visible when IsHybridVarietyGuideline = Y -->
+              <div
+                v-if="data.IsHybridVarietyGuideline === 'Y'"
+                style="display: flex; flex-direction: column; gap: 10px; padding: 10px 14px; border-left: 3px solid var(--color-primary-300); background: var(--color-neutral-50); margin-top: 4px"
+              >
+                <!--
+                  legacy: assessment_4_2_option_1 / option_2
+                  JSP path: crossPolinattedVarieties  →  ALLOWED: CrossPolinattedVarieties
+                  values: crosspollinatedonly / crosspollinatedwithotherpropagation
+                -->
                 <RadioGroup
                   :model-value="data.CrossPolinattedVarieties"
                   direction="vertical"
@@ -302,35 +416,53 @@ function setRadio(field: string, value: string) {
                   />
                 </RadioGroup>
 
-                <!-- ASW 8(a)(i) text for crosspollinatedonly -->
+                <!--
+                  ASW 8(a)(i) — legacy: assessment_ASW_8_a_i text
+                  shown when crosspollinatedonly selected
+                -->
                 <div
                   v-if="data.CrossPolinattedVarieties === 'crosspollinatedonly'"
-                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
                 >
                   The assessment of uniformity should be according to the recommendations for cross-pollinated varieties in the General Introduction.
-                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 8(a)(i))</a>
+                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 8(a)(i))</i></a>
                 </div>
 
-                <!-- ASW 8(a)(ii) text for crosspollinatedwithotherpropagation -->
+                <!--
+                  ASW 8(a)(ii) — legacy: assessment_ASW_8_a_ii_part1 + typesOfVariety input + part2
+                  shown when crosspollinatedwithotherpropagation selected
+                  "The assessment of uniformity for [X] should be according to the recommendations
+                   for cross-pollinated varieties in the General Introduction."
+                  JSP field: typesOfVariety (autocomplete)  →  reuses typeOfPropagation
+                -->
                 <div
                   v-if="data.CrossPolinattedVarieties === 'crosspollinatedwithotherpropagation'"
-                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.7; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
                 >
-                  The assessment of uniformity for [variety type] should be according to the recommendations for cross-pollinated varieties in the General Introduction.
-                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 8(a)(ii))</a>
+                  The assessment of uniformity for
+                  <Input
+                    :model-value="data.typeOfPropagation || ''"
+                    placeholder="(variety type)"
+                    size="small"
+                    style="display: inline-block; width: 160px; margin: 0 4px"
+                    @update:model-value="onFieldChange('typeOfPropagation', $event)"
+                  />
+                  should be according to the recommendations for cross-pollinated varieties in the General Introduction.
+                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 8(a)(ii))</i></a>
                 </div>
               </div>
             </div>
 
-            <!-- ── 4.2.2  Hybrid varieties ── -->
-            <!-- NOTE: reuses IsHybridVariety field as per legacy "hybridVariety" path -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.2.2 Hybrid varieties
-              </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+            <!-- ── Q2: Hybrid varieties ── -->
+            <!--
+              legacy: assessment_4_2_question_2
+              "Do these Test Guidelines cover hybrid varieties?"
+              JSP path: hybridVariety  →  ALLOWED: IsHybridVariety
+            -->
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                 Do these Test Guidelines cover hybrid varieties?
-              </p>
+              </label>
               <RadioGroup
                 :model-value="data.IsHybridVariety"
                 direction="horizontal"
@@ -339,24 +471,30 @@ function setRadio(field: string, value: string) {
                 <RadioOption value="Y" label="Yes" />
                 <RadioOption value="N" label="No" />
               </RadioGroup>
+
+              <!--
+                ASW 8(b) text — legacy: assessment_ASW_8_b
+                visible when hybridVariety = Y
+              -->
               <div
                 v-if="data.IsHybridVariety === 'Y'"
-                style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px; margin-top: 4px"
               >
                 The assessment of uniformity for hybrid varieties depends on the type of hybrid and should be according to the recommendations for hybrid varieties in the General Introduction.
-                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 8(b))</a>
+                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 8(b))</i></a>
               </div>
             </div>
 
-            <!-- ── 4.2.3  Uniformity — parent formula ── -->
-            <!-- maps to: UniformityAssessmentSameSample used for parentFormula Y/N -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.2.3 Parent formula
-              </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
+            <!-- ── Q3: Parent formula ── -->
+            <!--
+              legacy: assessment_4_2_question_3
+              "Do these Test Guidelines cover uniformity assessment where the parent formula is used?"
+              JSP path: uniformityAssessmentParentFormula  →  ALLOWED: UniformityAssessmentSameSample
+            -->
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                 Do these Test Guidelines cover uniformity assessment where the parent formula is used?
-              </p>
+              </label>
               <RadioGroup
                 :model-value="data.UniformityAssessmentSameSample"
                 direction="horizontal"
@@ -365,24 +503,34 @@ function setRadio(field: string, value: string) {
                 <RadioOption value="Y" label="Yes" />
                 <RadioOption value="N" label="No" />
               </RadioGroup>
+
+              <!--
+                ASW 8(e) text — legacy: assessment_ASW_8_e
+                visible when uniformityAssessmentParentFormula = Y
+              -->
               <div
                 v-if="data.UniformityAssessmentSameSample === 'Y'"
-                style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px; margin-top: 4px"
               >
                 Where the assessment of a hybrid variety involves the parent lines, the uniformity of the hybrid variety should, in addition to an examination of the hybrid variety itself, also be assessed by examination of the uniformity of its parent lines.
-                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 8(e))</a>
+                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 8(e))</i></a>
               </div>
             </div>
 
-            <!-- ── 4.2.4  Uniformity by off-types (different sample size) ── -->
-            <!-- maps to: UniformityAssessmentDifferentSample -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.2.4 Uniformity assessment by off-types
-              </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                Do these Test Guidelines cover uniformity assessment by off-type(s)?
-              </p>
+            <!-- ── Q4: Uniformity by off-types (same sample size) ── -->
+            <!--
+              legacy: assessment_4_2_question_4
+              "Do these Test Guidelines cover uniformity assessment by off-type(s)
+               (all characteristics observed on the same sample size)?"
+              JSP path: uniformityAssessmentSameSample
+                values: TGCoveringOnlyVarieties / TGCoveringOtherTypeOfVarieties
+              →  ALLOWED: UniformityAssessmentDifferentSample  (Y/N)
+            -->
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
+                Do these Test Guidelines cover uniformity assessment by off-type(s)
+                (all characteristics observed on the same sample size)?
+              </label>
               <RadioGroup
                 :model-value="data.UniformityAssessmentDifferentSample"
                 direction="horizontal"
@@ -396,18 +544,23 @@ function setRadio(field: string, value: string) {
           </div>
         </SectionAccordion>
 
-        <!-- ══════════════════════════════════════════════
+        <!-- ══════════════════════════════════════
              4.3  STABILITY
-        ══════════════════════════════════════════════ -->
+        ══════════════════════════════════════ -->
         <SectionAccordion number="4.3" title="Stability">
           <div style="display: flex; flex-direction: column; gap: 20px">
 
-            <!-- ── 4.3.1  Stability assessment — general ── -->
-            <!-- maps to: TGCovering / assessmentBean.tgCovering -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.3.1 Stability assessment: general
-                <span style="color: #D32F2F; margin-left: 2px">*</span>
+            <!-- ─── Stability assessment: general ─── -->
+            <!--
+              legacy: assessment_4_3_subtitle_1 = "Stability assessment: general"
+              JSP path: tgCovering  →  ALLOWED: TGCovering
+              values: SeedVegetative / Seed / Vegetative
+              options from assessment_4_3_option_1/2/3
+            -->
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
+                Stability assessment: general
+                <span style="color: #D32F2F"> *</span>
               </h3>
               <RadioGroup
                 :model-value="data.TGCovering"
@@ -428,63 +581,91 @@ function setRadio(field: string, value: string) {
                 />
               </RadioGroup>
 
-              <!-- ASW 9 descriptive text — shown based on TGCovering selection -->
+              <!--
+                ASW 9(a) — legacy: assessment_ASW_9_a
+                visible when tgCovering = SeedVegetative
+              -->
               <div
                 v-if="data.TGCovering === 'SeedVegetative'"
-                style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
               >
                 Where appropriate, or in cases of doubt, stability may be further examined by testing a new seed stock to ensure that it exhibits the same characteristics as those shown by the initial material supplied.
-                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 9(a))</a>
+                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 9(a))</i></a>
               </div>
+
+              <!--
+                ASW 9(b) — legacy: assessment_ASW_9_b
+                visible when tgCovering = Seed
+              -->
               <div
                 v-else-if="data.TGCovering === 'Seed'"
-                style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
               >
                 Where appropriate, or in cases of doubt, stability may be further examined by testing a new seed stock to ensure that it exhibits the same characteristics as those shown by the initial material supplied.
-                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 9(b))</a>
+                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 9(b))</i></a>
               </div>
+
+              <!--
+                ASW 9(c) — legacy: assessment_ASW_9_c_plants
+                visible when tgCovering = Vegetative
+              -->
               <div
                 v-else-if="data.TGCovering === 'Vegetative'"
-                style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
+                style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
               >
                 Where appropriate, or in cases of doubt, stability may be further examined by testing a new plant stock to ensure that it exhibits the same characteristics as those shown by the initial material supplied.
-                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 9(c))</a>
+                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 9(c))</i></a>
               </div>
             </div>
 
-            <!-- ── 4.3.2  Stability assessment — hybrid varieties / parent lines ── -->
-            <!-- maps to: IsParentLineAssessed / assessmentBean.parentLineAssessed -->
-            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                4.3.2 Stability assessment: hybrid varieties
+            <!-- ─── Stability assessment: hybrid varieties ─── -->
+            <!--
+              legacy: assessment_4_3_subtitle_2 = "Stability assessment: hybrid varieties"
+              assessment_4_3_question
+              "Does uniformity and stability of parent lines need to be assessed?"
+              JSP path: parentLineAssessed  →  ALLOWED: IsParentLineAssessed
+            -->
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
+                Stability assessment: hybrid varieties
               </h3>
-              <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-                Does uniformity and stability of parent lines need to be assessed?
-                <span style="color: #D32F2F; margin-left: 2px">*</span>
-              </p>
-              <RadioGroup
-                :model-value="data.IsParentLineAssessed"
-                direction="horizontal"
-                @update:model-value="setRadio('IsParentLineAssessed', $event)"
-              >
-                <RadioOption value="Y" label="Yes" />
-                <RadioOption value="N" label="No" />
-              </RadioGroup>
-              <div
-                v-if="data.IsParentLineAssessed === 'Y'"
-                style="font-size: 13px; color: var(--color-neutral-700); line-height: 19px; padding: 8px 12px; background: var(--color-neutral-100); border-radius: 4px"
-              >
-                Where appropriate, or in cases of doubt, the stability of a hybrid variety may, in addition to an examination of the hybrid variety itself, also be assessed by examination of the uniformity and stability of its parent lines.
-                <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">(ASW 10)</a>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
+                  Does uniformity and stability of parent lines need to be assessed?
+                  <span style="color: #D32F2F"> *</span>
+                </label>
+                <RadioGroup
+                  :model-value="data.IsParentLineAssessed"
+                  direction="horizontal"
+                  @update:model-value="setRadio('IsParentLineAssessed', $event)"
+                >
+                  <RadioOption value="Y" label="Yes" />
+                  <RadioOption value="N" label="No" />
+                </RadioGroup>
+
+                <!--
+                  ASW 10 text — legacy: assessment_ASW_10
+                  visible when parentLineAssessed = Y
+                -->
+                <div
+                  v-if="data.IsParentLineAssessed === 'Y'"
+                  style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6; padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px; margin-top: 4px"
+                >
+                  Where appropriate, or in cases of doubt, the stability of a hybrid variety may, in addition to an examination of the hybrid variety itself, also be assessed by examination of the uniformity and stability of its parent lines.
+                  <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 10)</i></a>
+                </div>
               </div>
             </div>
 
-            <!-- Stability additional information (optional rich text) -->
-            <!-- maps to: StabilityAddInfo / assessmentBean.stabilityAddInfo -->
+            <!-- Additional stability information -->
+            <!--
+              legacy: stabilityAddInfo textarea (togglable via Add/Remove Paragraph)
+              ALLOWED_FIELDS: StabilityAddInfo
+            -->
             <div style="display: flex; flex-direction: column; gap: 6px">
               <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
-                Additional stability information
-                <span style="font-size: 12px; font-weight: 400; color: var(--color-neutral-500); margin-left: 6px">(optional)</span>
+                Additional information on stability
+                <span style="font-size: 12px; font-weight: 400; color: var(--color-neutral-500)"> (optional)</span>
               </label>
               <Editor
                 :model-value="data.StabilityAddInfo || ''"
