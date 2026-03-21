@@ -38,12 +38,17 @@ export const findAssessmentId = async (tgId) => {
   return row?.Assessment_Id ?? null;
 };
 
+// Real DB columns in AssesmentMethodPropogation (verified from SELECT * response):
+//   AssesmentMethodPropogation_ID, Assessment_ID,
+//   PropogationMethod, OtherPropogationMethodInfo,
+//   NumberOfPlants  (stored as "first;second"),
+//   NumberOfPartsOfPlants, isPartsOfSinglePlants
 const PROP_METHOD_FIELDS = [
   'PropogationMethod',
-  'NumberOfPlantsFirst',
-  'NumberOfPlantsSecond',
-  'IsPartsOfSinglePlants',
-  'NumberOfPartsOfPlant',
+  'OtherPropogationMethodInfo',
+  'NumberOfPlants',
+  'NumberOfPartsOfPlants',
+  'isPartsOfSinglePlants',
 ];
 
 export const createAssessmentPropMethod = async (tgId, data) => {
@@ -51,16 +56,16 @@ export const createAssessmentPropMethod = async (tgId, data) => {
   if (!assessmentId) return null;
   const result = await query(
     `INSERT INTO AssesmentMethodPropogation
-       (Assessment_ID, PropogationMethod, NumberOfPlantsFirst, NumberOfPlantsSecond,
-        IsPartsOfSinglePlants, NumberOfPartsOfPlant)
+       (Assessment_ID, PropogationMethod, OtherPropogationMethodInfo,
+        NumberOfPlants, NumberOfPartsOfPlants, isPartsOfSinglePlants)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [
       assessmentId,
       data.PropogationMethod ?? '',
-      data.NumberOfPlantsFirst ?? '',
-      data.NumberOfPlantsSecond ?? '',
-      data.IsPartsOfSinglePlants ?? 'N',
-      data.NumberOfPartsOfPlant ?? '',
+      data.OtherPropogationMethodInfo ?? '',
+      data.NumberOfPlants ?? ';',
+      data.NumberOfPartsOfPlants ?? '',
+      data.isPartsOfSinglePlants ?? 'N',
     ]
   );
   return queryOne(

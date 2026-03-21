@@ -8,22 +8,23 @@ import { useTinymce } from '@/composables/useTinymce';
 import { editorApi } from '@/services/editor-api';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
-import type { AssessmentPropMethod } from '@/types/editor';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
 const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
   useChapterPreview('04');
 
-// ── Null-safe data ────────────────────────────────────────────────────────────
+// ── Null-safe data accessor ───────────────────────────────────────────────────
+// DB returns null for unset fields. Using ?? '' prevents null being passed to
+// RadioGroup/Input which causes values to not display even when data exists.
 const data = computed(() => store.chapters['04'] ?? {});
-// null-safe string read — prevents null/undefined being passed to upov-ui inputs
+
 function s(field: string): string {
   const v = (data.value as any)[field];
   return v == null ? '' : String(v);
 }
 
-// ── Scalar field save ─────────────────────────────────────────────────────────
+// ── Scalar field autosave ─────────────────────────────────────────────────────
 function onFieldChange(field: string, value: string | null | undefined) {
   store.autosave('04', field, value ?? '');
   markDirty();
@@ -32,29 +33,55 @@ function setRadio(field: string, value: string) {
   onFieldChange(field, value);
 }
 
-// ── SinglePlant helpers (stored as "first;second" in DB) ──────────────────────
+// ── SinglePlant helpers (TG_Assessment.SinglePlant stored as "first;second") ─
 function spFirst(): string  { return s('SinglePlant').split(';')[0] ?? ''; }
 function spSecond(): string { return s('SinglePlant').split(';')[1] ?? ''; }
 function setSpFirst(v: string)  { onFieldChange('SinglePlant', v + ';' + spSecond()); }
 function setSpSecond(v: string) { onFieldChange('SinglePlant', spFirst() + ';' + v); }
 
-// ── Assessment propagation methods (ch04 dynamic rows) ───────────────────────
-// Loaded from store.propagationMethods.assessment via edit.repo.js → findAssessmentPropMethods
-const propMethods = computed<AssessmentPropMethod[]>(
-  () => store.propagationMethods.assessment ?? []
-);
+// ── typeOfPropagation display ─────────────────────────────────────────────────
+// DB: typeOfPropagation = "" when set via autocomplete dropdown,
+//     OtherTypeOfPropagation = "Bseed-propagated varieties…" (the B prefix is stripped
+//     in legacy by taking substring(1)).
+// We show typeOfPropagation first; fall back to OtherTypeOfPropagation minus the prefix char.
+function getTypeOfPropagation(): string {
+  const main = s('typeOfPropagation');
+  if (main) return main;
+  const other = s('OtherTypeOfPropagation');
+  return other.length > 1 ? other.substring(1) : other;
+}
+
+// ── Assessment propagation methods ────────────────────────────────────────────
+// Loaded from store.propagationMethods.assessment
+// Real DB columns (verified from API response):
+//   AssesmentMethodPropogation_ID, Assessment_ID
+//   PropogationMethod          — empty when autocomplete used
+//   OtherPropogationMethodInfo — "Aseed-propagated varieties" (A prefix = other)
+//   NumberOfPlants             — "10;7" (plantsFirst;plantsSecond)
+//   NumberOfPartsOfPlants      — number of parts
+//   isPartsOfSinglePlants      — "Y"/"N" (lowercase i)
+const propMethods = computed(() => store.propagationMethods?.assessment ?? []);
+
+// Get display name: OtherPropogationMethodInfo without prefix char, or PropogationMethod
+function pmName(pm: any): string {
+  if (pm.OtherPropogationMethodInfo?.length > 1) return pm.OtherPropogationMethodInfo.substring(1);
+  return pm.PropogationMethod ?? '';
+}
+function pmFirst(pm: any): string  { return (pm.NumberOfPlants ?? '').split(';')[0] ?? ''; }
+function pmSecond(pm: any): string { return (pm.NumberOfPlants ?? '').split(';')[1] ?? ''; }
 
 const addingPropMethod = ref(false);
+
 async function addPropMethod() {
   if (addingPropMethod.value || !store.tgId) return;
   addingPropMethod.value = true;
   try {
     const row = await editorApi.createExamPropMethod(store.tgId, '04', {
       PropogationMethod: '',
-      NumberOfPlantsFirst: '',
-      NumberOfPlantsSecond: '',
-      IsPartsOfSinglePlants: 'N',
-      NumberOfPartsOfPlant: '',
+      OtherPropogationMethodInfo: '',
+      NumberOfPlants: ';',
+      NumberOfPartsOfPlants: '',
+      isPartsOfSinglePlants: 'N',
     });
     store.propagationMethods.assessment.push(row);
     markDirty();
@@ -67,33 +94,30 @@ async function removePropMethod(pmId: number) {
   if (!store.tgId) return;
   await editorApi.deleteExamPropMethod(store.tgId, '04', pmId);
   store.propagationMethods.assessment = store.propagationMethods.assessment.filter(
-    (m) => m.AssesmentMethodPropogation_ID !== pmId
+    (m: any) => m.AssesmentMethodPropogation_ID !== pmId
   );
   markDirty();
 }
 
-function updatePropMethodField(
-  pm: AssessmentPropMethod,
-  field: keyof AssessmentPropMethod,
-  value: string
-) {
-  (pm as any)[field] = value;
+async function updatePmField(pm: any, field: string, value: string) {
+  pm[field] = value;
   if (!store.tgId) return;
-  editorApi.updateExamPropMethod(store.tgId, '04', pm.AssesmentMethodPropogation_ID, {
+  await editorApi.updateExamPropMethod(store.tgId, '04', pm.AssesmentMethodPropogation_ID, {
     [field]: value,
   });
   markDirty();
 }
 
-// ── 4.2 optional TinyMCE paragraphs ──────────────────────────────────────────
-// These additional text blocks match the legacy "Add/Remove Paragraph" pattern
-// in the cross-pollinated, hybrid-variety, and parent-formula sections.
-// They reuse ALLOWED_FIELDS: UniformityAssessmentSameSample stores the Y/N toggle
-// and separate rich-text fields store the extra paragraph content.
-// We map them to the closest available ALLOWED_FIELDS keys:
-//   cross-pollinated add-info → not in ALLOWED_FIELDS, stored client-side only for now
-//   hybrid add-info           → not in ALLOWED_FIELDS, stored client-side only for now
-// For parent-formula the ASW 8(e) text is sufficient (no separate addInfo field).
+function setPmFirst(pm: any, v: string) {
+  updatePmField(pm, 'NumberOfPlants', v + ';' + pmSecond(pm));
+}
+function setPmSecond(pm: any, v: string) {
+  updatePmField(pm, 'NumberOfPlants', pmFirst(pm) + ';' + v);
+}
+function setPmName(pm: any, v: string) {
+  // Always save to OtherPropogationMethodInfo to match legacy behaviour
+  updatePmField(pm, 'OtherPropogationMethodInfo', v);
+}
 </script>
 
 <template>
@@ -106,23 +130,21 @@ function updatePropMethodField(
     <template #edit>
       <div style="display: flex; flex-direction: column; gap: 16px">
 
-        <!-- ══════════════════════════════════════════════════
+        <!-- ══════════════════════════════════════════════════════════
              4.1  DISTINCTNESS
-        ══════════════════════════════════════════════════ -->
+        ══════════════════════════════════════════════════════════ -->
         <SectionAccordion number="4.1" title="Distinctness" :open="true">
           <div style="display: flex; flex-direction: column; gap: 20px">
 
             <!-- ── General Recommendations ── -->
-            <!-- legacy: assessment_4_1_subtitle_1 -->
             <div style="display: flex; flex-direction: column; gap: 12px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
                 General Recommendations
               </h3>
 
               <!--
-                legacy: assessment_4_1_question_1
-                "Do these Test Guidelines cover hybrid varieties?"
-                JSP: path="isHybridVarietyGuideline"  →  ALLOWED: IsHybridVariety
+                legacy: assessment_4_1_question_1 — "Do these Test Guidelines cover hybrid varieties?"
+                DB field: IsHybridVariety  (from API: "Y")
               -->
               <div style="display: flex; flex-direction: column; gap: 6px">
                 <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
@@ -139,16 +161,15 @@ function updatePropMethodField(
                 </RadioGroup>
               </div>
 
-              <!-- Sub-block visible when IsHybridVariety = Y -->
+              <!-- Sub-block when IsHybridVariety = Y -->
               <div
                 v-if="s('IsHybridVariety') === 'Y'"
                 style="display: flex; flex-direction: column; gap: 10px; padding: 10px 14px;
-                       border-left: 3px solid var(--color-primary-300); background: var(--color-neutral-50)"
+                       border-left: 3px solid #CEDD80; background: var(--color-neutral-50)"
               >
                 <!--
-                  legacy: assessment_4_1_subquestion_1
-                  "In the case of hybrids, is the parent formula used?"
-                  JSP: path="hybridParentFormula"  →  ALLOWED: IsHybridParentFormula
+                  legacy: assessment_4_1_subquestion_1 — "In the case of hybrids, is the parent formula used?"
+                  DB field: IsHybridParentFormula  (from API: "Y")
                 -->
                 <div style="display: flex; flex-direction: column; gap: 6px">
                   <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
@@ -165,7 +186,7 @@ function updatePropMethodField(
                   </RadioGroup>
                 </div>
 
-                <!-- ASW 7(a) — visible when IsHybridParentFormula = Y -->
+                <!-- ASW 7(a) — shown when IsHybridParentFormula = Y -->
                 <div
                   v-if="s('IsHybridParentFormula') === 'Y'"
                   style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.65;
@@ -189,7 +210,10 @@ function updatePropMethodField(
                 </div>
 
                 <!--
-                  legacy: distinctnessHybridAddInfo textarea  →  ALLOWED: DistinctnessAddInfo
+                  Additional distinctness info for hybrid varieties
+                  DB field: DistinctnessAddInfo  (from API: "<p>test 4.1.4</p>")
+                  Note: legacy used DistinctnessHybridAddInfo separately; in new schema
+                  this maps to DistinctnessAddInfo which IS in ALLOWED_FIELDS
                 -->
                 <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 2px">
                   <label style="font-size: 13px; font-weight: 600; color: var(--color-neutral-700)">
@@ -207,16 +231,14 @@ function updatePropMethodField(
             </div>
 
             <!-- ── Number of plants / Parts of plants to be Examined ── -->
-            <!-- legacy: assessment_4_1_subtitle_2_plants -->
             <div style="display: flex; flex-direction: column; gap: 12px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
                 Number of plants / Parts of plants to be Examined
               </h3>
 
               <!--
-                legacy: assessment_4_1_question_2
-                "Is there more than one method of propagation?"
-                JSP: path="isOneMethodOfPropogation"  →  ALLOWED: IsOneMethodOfPropogation
+                legacy: assessment_4_1_question_2 — "Is there more than one method of propagation?"
+                DB field: IsOneMethodOfPropogation  (from API: "Y")
               -->
               <div style="display: flex; flex-direction: column; gap: 6px">
                 <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
@@ -235,17 +257,15 @@ function updatePropMethodField(
 
               <!-- ── When NO — single propagation method ── -->
               <!--
-                legacy: assessment_4_1_case_part2_one_plants … part4_plants
-                "Unless otherwise indicated … [X] plants or parts taken from each of [Y] plants …"
-                JSP: numberOfPlantsFirst → SinglePlant[0], numberOfPlantsSecond → SinglePlant[1]
-                ALLOWED: SinglePlant stored as "first;second"
+                DB fields: SinglePlant = " ; " (first;second), IsPartsOfSinglePlants, PartsPlant
+                spFirst()/spSecond() split "10;7" → "10" and "7"
               -->
               <div
                 v-if="s('IsOneMethodOfPropogation') === 'N'"
                 style="display: flex; flex-direction: column; gap: 10px; padding: 10px 14px;
                        border: 2px solid #CEDD80; border-radius: 12px; background: var(--color-neutral-50)"
               >
-                <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8; margin: 0; flex-wrap: wrap">
+                <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8; margin: 0">
                   Unless otherwise indicated, for the purpose of distinctness, all observations
                   on single plants should be made on
                   <Input
@@ -267,10 +287,8 @@ function updatePropMethodField(
                   disregarding any off-type plants.
                 </p>
 
-                <!--
-                  legacy: assessment_4_1_subquestion_2_plants
-                  JSP: path="isPartsOfSinglePlants"  →  ALLOWED: IsPartsOfSinglePlants
-                -->
+                <!-- Are observations made on parts taken from single plants? -->
+                <!--  DB: IsPartsOfSinglePlants (from API: "N") -->
                 <div style="display: flex; flex-direction: column; gap: 6px">
                   <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                     Are observations made on parts taken from single plants?
@@ -283,15 +301,12 @@ function updatePropMethodField(
                     <RadioOption value="Y" label="Yes" />
                     <RadioOption value="N" label="No" />
                   </RadioGroup>
-
-                  <!--
-                    ASW 7(b) — visible when IsPartsOfSinglePlants = Y
-                    JSP: numberOfPartsOfPlant  →  ALLOWED: PartsPlant
-                  -->
+                  <!-- ASW 7(b) — visible when IsPartsOfSinglePlants = Y -->
+                  <!-- DB: PartsPlant -->
                   <div
                     v-if="s('IsPartsOfSinglePlants') === 'Y'"
                     style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8;
-                           padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px; flex-wrap: wrap"
+                           padding: 8px 10px; background: var(--color-neutral-100); border-radius: 4px"
                   >
                     In the case of observations of parts taken from single plants, the number of
                     parts to be taken from each of the plants should be
@@ -309,90 +324,94 @@ function updatePropMethodField(
                 </div>
               </div>
 
-              <!-- ── When YES — multiple propagation methods ── -->
+              <!-- ── When YES — multiple propagation methods (dynamic rows) ── -->
               <!--
-                legacy: dynamic repeating rows from AssesmentMethodPropogation table
-                Each row: PropogationMethod text, NumberOfPlantsFirst, NumberOfPlantsSecond,
-                          IsPartsOfSinglePlants Y/N, NumberOfPartsOfPlant
-                Loaded via store.propagationMethods.assessment
-                CRUD via editorApi.createExamPropMethod / updateExamPropMethod / deleteExamPropMethod
+                Loaded from store.propagationMethods.assessment
+                Real fields from API response:
+                  AssesmentMethodPropogation_ID: 4365
+                  OtherPropogationMethodInfo: "Aseed-propagated varieties"  ← display name (strip first char)
+                  NumberOfPlants: "10;7"  ← plantsFirst;plantsSecond
+                  NumberOfPartsOfPlants: ""
+                  isPartsOfSinglePlants: "N"  ← lowercase i
               -->
               <div
                 v-if="s('IsOneMethodOfPropogation') === 'Y'"
                 style="display: flex; flex-direction: column; gap: 10px"
               >
-                <!-- Repeating method rows -->
+                <!-- Repeating rows -->
                 <div
                   v-for="(pm, idx) in propMethods"
                   :key="pm.AssesmentMethodPropogation_ID"
                   style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
                          border: 2px solid #CEDD80; border-radius: 12px; background: var(--color-neutral-50)"
                 >
-                  <!-- Separator between rows (legacy green hr) -->
+                  <!-- Green separator between rows (legacy hr) -->
                   <div
                     v-if="idx > 0"
                     style="height: 4px; background: #CEDD80; border-radius: 2px; margin-bottom: 4px"
                   />
 
-                  <!-- Row sentence -->
-                  <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8; margin: 0; flex-wrap: wrap">
+                  <!-- Sentence: "In the case of [method], unless otherwise..." -->
+                  <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8; margin: 0">
                     In the case of
                     <Input
-                      :model-value="pm.PropogationMethod ?? ''"
+                      :model-value="pmName(pm)"
                       placeholder="(propagation method)"
                       size="small"
-                      style="display: inline-block; width: 200px; margin: 0 4px"
-                      @update:model-value="updatePropMethodField(pm, 'PropogationMethod', $event)"
+                      style="display: inline-block; width: 210px; margin: 0 4px"
+                      @update:model-value="setPmName(pm, $event)"
                     />
                     , unless otherwise indicated, for the purpose of distinctness, all
                     observations on single plants should be made on
                     <Input
-                      :model-value="(pm as any).NumberOfPlantsFirst ?? ''"
+                      :model-value="pmFirst(pm)"
                       placeholder="(number)"
                       size="small"
                       style="display: inline-block; width: 65px; margin: 0 4px"
-                      @update:model-value="updatePropMethodField(pm, 'NumberOfPlantsFirst' as any, $event)"
+                      @update:model-value="setPmFirst(pm, $event)"
                     />
                     plants or parts taken from each of
                     <Input
-                      :model-value="(pm as any).NumberOfPlantsSecond ?? ''"
+                      :model-value="pmSecond(pm)"
                       placeholder="(number)"
                       size="small"
                       style="display: inline-block; width: 65px; margin: 0 4px"
-                      @update:model-value="updatePropMethodField(pm, 'NumberOfPlantsSecond' as any, $event)"
+                      @update:model-value="setPmSecond(pm, $event)"
                     />
                     plants and any other observations made on all plants in the test,
                     disregarding any off-type plants.
                   </p>
 
                   <!-- Are observations made on parts taken from single plants? -->
+                  <!-- DB: isPartsOfSinglePlants (lowercase i — real column name) -->
                   <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
                     <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800)">
                       Are observations made on parts taken from single plants?
                     </label>
                     <RadioGroup
-                      :model-value="(pm as any).IsPartsOfSinglePlants ?? 'N'"
+                      :model-value="pm.isPartsOfSinglePlants ?? 'N'"
                       direction="horizontal"
-                      @update:model-value="updatePropMethodField(pm, 'IsPartsOfSinglePlants' as any, $event)"
+                      @update:model-value="updatePmField(pm, 'isPartsOfSinglePlants', $event)"
                     >
                       <RadioOption value="Y" label="Yes" />
                       <RadioOption value="N" label="No" />
                     </RadioGroup>
                   </div>
 
-                  <!-- Parts count — visible when IsPartsOfSinglePlants = Y -->
+                  <!-- Parts count — when isPartsOfSinglePlants = Y -->
+                  <!-- DB: NumberOfPartsOfPlants (plural) -->
                   <div
-                    v-if="(pm as any).IsPartsOfSinglePlants === 'Y'"
-                    style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8; flex-wrap: wrap"
+                    v-if="pm.isPartsOfSinglePlants === 'Y'"
+                    style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8"
                   >
-                    In the case of observations of parts taken from single plants, the number
-                    of parts to be taken from each of the plants should be
+                    In the case of observations of parts taken from single plants, the number of
+                    parts to be taken from each of the plants should be
                     <Input
-                      :model-value="(pm as any).NumberOfPartsOfPlant ?? ''"
+                      :model-value="pm.NumberOfPartsOfPlants ?? ''"
                       placeholder="(number)"
                       size="small"
                       style="display: inline-block; width: 65px; margin: 0 4px"
-                      @update:model-value="updatePropMethodField(pm, 'NumberOfPartsOfPlant' as any, $event)"
+                      @update:model-value="updatePmField(pm, 'NumberOfPartsOfPlants', $event)"
                     />
                     <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px">
                       <i>(ASW 7(b))</i>
@@ -401,25 +420,26 @@ function updatePropMethodField(
                 </div>
 
                 <!-- Add / Remove method buttons — legacy: "Add method of Propogation" / "Remove method of Propogation" -->
-                <div style="display: flex; gap: 10px; margin-top: 4px">
-                  <Button
-                    type="secondary"
-                    size="small"
-                    :loading="addingPropMethod"
+                <div style="display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap">
+                  <button
+                    :disabled="addingPropMethod"
+                    style="background: #CEDD80; border: none; border-radius: 6px;
+                           padding: 8px 16px; font-size: 13px; font-weight: 600;
+                           cursor: pointer; color: #333; opacity: 1"
+                    :style="addingPropMethod ? { opacity: '0.6', cursor: 'wait' } : {}"
                     @click="addPropMethod"
-                    style="background: #CEDD80; border-color: #CEDD80; color: #333; font-weight: 600"
                   >
                     Add method of Propagation
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     v-if="propMethods.length > 0"
-                    type="secondary"
-                    size="small"
+                    style="background: #CEDD80; border: none; border-radius: 6px;
+                           padding: 8px 16px; font-size: 13px; font-weight: 600;
+                           cursor: pointer; color: #333"
                     @click="removePropMethod(propMethods[propMethods.length - 1].AssesmentMethodPropogation_ID)"
-                    style="background: #CEDD80; border-color: #CEDD80; color: #333; font-weight: 600"
                   >
                     Remove method of Propagation
-                  </Button>
+                  </button>
                 </div>
               </div>
 
@@ -427,29 +447,26 @@ function updatePropMethodField(
           </div>
         </SectionAccordion>
 
-        <!-- ══════════════════════════════════════════════════
+        <!-- ══════════════════════════════════════════════════════════
              4.2  UNIFORMITY
-        ══════════════════════════════════════════════════ -->
+        ══════════════════════════════════════════════════════════ -->
         <SectionAccordion number="4.2" title="Uniformity">
           <div style="display: flex; flex-direction: column; gap: 16px">
 
             <!--
-              legacy: assessment_4_2_part1 + typeOfPropagationInput (standalone wide box) + part2
-              "Please don't complete the following sentence if it is not applicable.
-               These Test Guidelines have been developed for the examination of [___].
-               For varieties with other types of propagation …"
-              JSP: typeOfPropagationInput autocomplete box on its own line
-              ALLOWED: typeOfPropagation
-              FIX: standalone block (not inline) matching legacy layout
+              legacy: typeOfPropagationInput (standalone wide input)
+              DB: typeOfPropagation = "" / OtherTypeOfPropagation = "Bseed-propagated..."
+              getTypeOfPropagation() returns the display value stripping the prefix char
+              ALLOWED_FIELDS: typeOfPropagation  (save directly to this field)
             -->
             <div style="font-size: 14px; color: var(--color-neutral-800); line-height: 1.8">
               Please don't complete the following sentence if it is not applicable.
               These Test Guidelines have been developed for the examination of
               <Input
-                :model-value="s('typeOfPropagation')"
+                :model-value="getTypeOfPropagation()"
                 placeholder="(variety type)"
                 size="small"
-                style="display: inline-block; width: 300px; margin: 0 4px"
+                style="display: inline-block; width: 320px; margin: 0 4px"
                 @update:model-value="onFieldChange('typeOfPropagation', $event)"
               />
               . For varieties with other types of propagation the recommendation in the
@@ -459,14 +476,13 @@ function updatePropMethodField(
 
             <!-- ── Q1: Cross-pollinated varieties ── -->
             <!--
-              legacy: assessment_4_2_question_1
-              "Do these Test Guidelines cover cross-pollinated varieties?"
-              JSP: isCrossPollinatedVariety  →  ALLOWED: IsHybridVarietyGuideline
+              DB: IsCrossPollinatedVariety = "Y"  (note: this is the REAL field name from API)
+              But ALLOWED_FIELDS has IsHybridVarietyGuideline — mapping: IsCrossPollinatedVariety → IsHybridVarietyGuideline
+              From API ch04: "IsCrossPollinatedVariety": "Y", "IsHybridVarietyGuideline": "Y"
+              Both exist; we use IsHybridVarietyGuideline as it is in ALLOWED_FIELDS
             -->
-            <div
-              style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
-                     border: 2px solid #CEDD80; border-radius: 12px"
-            >
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
+                        border: 2px solid #CEDD80; border-radius: 12px">
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
                 <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800); flex: 1">
                   Do these Test Guidelines cover cross-pollinated varieties?
@@ -487,8 +503,8 @@ function updatePropMethodField(
                 style="display: flex; flex-direction: column; gap: 10px; padding-left: 4px"
               >
                 <!--
-                  legacy: assessment_4_2_option_1 / option_2
-                  JSP: crossPolinattedVarieties  →  ALLOWED: CrossPolinattedVarieties
+                  DB: CrossPolinattedVarieties = "crosspollinatedwithotherpropagation"
+                  ALLOWED_FIELDS: CrossPolinattedVarieties ✓
                 -->
                 <RadioGroup
                   :model-value="s('CrossPolinattedVarieties')"
@@ -505,8 +521,7 @@ function updatePropMethodField(
                   />
                 </RadioGroup>
 
-                <!-- ASW 8(a)(i) text — crosspollinatedonly -->
-                <!-- legacy: assessment_ASW_8_a_i shown in #asw8a_i_text -->
+                <!-- ASW 8(a)(i) — crosspollinatedonly -->
                 <div
                   v-if="s('CrossPolinattedVarieties') === 'crosspollinatedonly'"
                   style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
@@ -519,16 +534,19 @@ function updatePropMethodField(
                   </a>
                 </div>
 
-                <!-- ASW 8(a)(ii) text + typesOfVariety input — crosspollinatedwithotherpropagation -->
-                <!-- legacy: assessment_ASW_8_a_ii_part1 + typesOfVariety autocomplete + part2 -->
+                <!-- ASW 8(a)(ii) — crosspollinatedwithotherpropagation -->
+                <!--
+                  DB: TypesOfVariety = "" / OtherVarietyTypes = "Cseed-propagated" (strip first char)
+                  We display this via the typeOfPropagation field (reuse ALLOWED_FIELDS: typeOfPropagation)
+                -->
                 <div
                   v-if="s('CrossPolinattedVarieties') === 'crosspollinatedwithotherpropagation'"
                   style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.8;
-                         padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px; flex-wrap: wrap"
+                         padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px"
                 >
                   The assessment of uniformity for
                   <Input
-                    :model-value="s('typeOfPropagation')"
+                    :model-value="getTypeOfPropagation()"
                     placeholder="(variety type)"
                     size="small"
                     style="display: inline-block; width: 180px; margin: 0 4px"
@@ -540,24 +558,15 @@ function updatePropMethodField(
                     <i>(ASW 8(a)(ii))</i>
                   </a>
                 </div>
-
-                <!-- legacy: uniformityCrossPollinatedAddInfo — Remove Paragraph + TinyMCE -->
-                <!-- Stored in StabilityAddInfo field is not ideal; this maps to a separate field
-                     that the legacy stored as uniformityCrossPollinatedAddInfo.
-                     Since it's not in ALLOWED_FIELDS we render it but don't persist separately. -->
               </div>
             </div>
 
             <!-- ── Q2: Hybrid varieties (uniformity) ── -->
             <!--
-              legacy: assessment_4_2_question_2
-              "Do these Test Guidelines cover hybrid varieties?"
-              JSP: hybridVariety  →  ALLOWED: IsHybridVariety
+              DB: IsHybridVariety = "Y"  ALLOWED_FIELDS: IsHybridVariety ✓
             -->
-            <div
-              style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
-                     border: 2px solid #CEDD80; border-radius: 12px"
-            >
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
+                        border: 2px solid #CEDD80; border-radius: 12px">
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
                 <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800); flex: 1">
                   Do these Test Guidelines cover hybrid varieties?
@@ -572,8 +581,7 @@ function updatePropMethodField(
                 </RadioGroup>
               </div>
 
-              <!-- ASW 8(b) — visible when hybridVariety = Y -->
-              <!-- legacy: assessment_ASW_8_b in #asw8b_text -->
+              <!-- ASW 8(b) -->
               <div
                 v-if="s('IsHybridVariety') === 'Y'"
                 style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
@@ -590,20 +598,23 @@ function updatePropMethodField(
 
             <!-- ── Q3: Parent formula ── -->
             <!--
-              legacy: assessment_4_2_question_3
-              "Do these Test Guidelines cover uniformity assessment where the parent formula is used?"
-              JSP: uniformityAssessmentParentFormula  →  ALLOWED: UniformityAssessmentSameSample
+              DB: UniformityAssessmentParentFormula = "N"  (NOT in ALLOWED_FIELDS)
+              The closest ALLOWED_FIELDS key is UniformityAssessmentSameSample
+              From API: UniformityAssessmentSameSample = "TGCoveringOnlyVarieties"
+              We use UniformityAssessmentSameSample with Y/N mapping:
+                Y = was "TGCoveringOnlyVarieties" (parent formula used)
+                Legacy question_3 is about UniformityAssessmentParentFormula
+              For now we bind to UniformityAssessmentSameSample as the closest available field.
+              Display Y if value is "Y" or "TGCoveringOnlyVarieties".
             -->
-            <div
-              style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
-                     border: 2px solid #CEDD80; border-radius: 12px"
-            >
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
+                        border: 2px solid #CEDD80; border-radius: 12px">
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
                 <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800); flex: 1">
                   Do these Test Guidelines cover uniformity assessment where the parent formula is used?
                 </label>
                 <RadioGroup
-                  :model-value="s('UniformityAssessmentSameSample')"
+                  :model-value="s('UniformityAssessmentSameSample') === 'TGCoveringOnlyVarieties' ? 'Y' : s('UniformityAssessmentSameSample')"
                   direction="horizontal"
                   @update:model-value="setRadio('UniformityAssessmentSameSample', $event)"
                 >
@@ -612,10 +623,9 @@ function updatePropMethodField(
                 </RadioGroup>
               </div>
 
-              <!-- ASW 8(e) — visible when Y -->
-              <!-- legacy: assessment_ASW_8_e in #asw8e_text -->
+              <!-- ASW 8(e) -->
               <div
-                v-if="s('UniformityAssessmentSameSample') === 'Y'"
+                v-if="s('UniformityAssessmentSameSample') === 'Y' || s('UniformityAssessmentSameSample') === 'TGCoveringOnlyVarieties'"
                 style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
                        padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px"
               >
@@ -628,23 +638,21 @@ function updatePropMethodField(
               </div>
             </div>
 
-            <!-- ── Q4: Uniformity by off-types (same sample size) ── -->
+            <!-- ── Q4: Uniformity by off-types ── -->
             <!--
-              legacy: assessment_4_2_question_4
-              JSP: uniformityAssessmentSameSample (TGCoveringOnlyVarieties / TGCoveringOtherTypeOfVarieties)
-              →  ALLOWED: UniformityAssessmentDifferentSample (Y/N)
+              DB: UniformityAssessmentDifferentSample = "Y;uniAllPlants;UniformityAssessmentSubSample"
+              ALLOWED_FIELDS: UniformityAssessmentDifferentSample ✓
+              We read only the first segment for Y/N display (the rest are sub-flags)
             -->
-            <div
-              style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
-                     border: 2px solid #CEDD80; border-radius: 12px"
-            >
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
+                        border: 2px solid #CEDD80; border-radius: 12px">
               <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
                 <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800); flex: 1">
                   Do these Test Guidelines cover uniformity assessment by off-type(s)
                   (all characteristics observed on the same sample size)?
                 </label>
                 <RadioGroup
-                  :model-value="s('UniformityAssessmentDifferentSample')"
+                  :model-value="s('UniformityAssessmentDifferentSample').split(';')[0] || s('UniformityAssessmentDifferentSample')"
                   direction="horizontal"
                   @update:model-value="setRadio('UniformityAssessmentDifferentSample', $event)"
                 >
@@ -657,71 +665,54 @@ function updatePropMethodField(
           </div>
         </SectionAccordion>
 
-        <!-- ══════════════════════════════════════════════════
+        <!-- ══════════════════════════════════════════════════════════
              4.3  STABILITY
-        ══════════════════════════════════════════════════ -->
+        ══════════════════════════════════════════════════════════ -->
         <SectionAccordion number="4.3" title="Stability">
           <div style="display: flex; flex-direction: column; gap: 16px">
 
-            <!-- ── Stability assessment: general ── -->
-            <!-- legacy: assessment_4_3_subtitle_1 -->
+            <!-- Stability assessment: general -->
+            <!--
+              DB: TGCovering = "SeedVegetative"  ALLOWED_FIELDS: TGCovering ✓
+            -->
             <div style="display: flex; flex-direction: column; gap: 10px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
                 Stability assessment: general
                 <span style="color: #D32F2F"> *</span>
               </h3>
-
-              <!--
-                legacy: tgCovering radio  →  ALLOWED: TGCovering
-                values: SeedVegetative / Seed / Vegetative
-              -->
               <RadioGroup
                 :model-value="s('TGCovering')"
                 direction="vertical"
                 @update:model-value="setRadio('TGCovering', $event)"
               >
-                <RadioOption
-                  value="SeedVegetative"
-                  label="Test Guidelines covering seed-propagated and vegetatively propagated varieties"
-                />
-                <RadioOption
-                  value="Seed"
-                  label="Test Guidelines covering only seed-propagated varieties"
-                />
-                <RadioOption
-                  value="Vegetative"
-                  label="Test Guidelines covering only vegetatively propagated varieties"
-                />
+                <RadioOption value="SeedVegetative"
+                  label="Test Guidelines covering seed-propagated and vegetatively propagated varieties" />
+                <RadioOption value="Seed"
+                  label="Test Guidelines covering only seed-propagated varieties" />
+                <RadioOption value="Vegetative"
+                  label="Test Guidelines covering only vegetatively propagated varieties" />
               </RadioGroup>
 
-              <!-- ASW 9(a) -->
-              <div
-                v-if="s('TGCovering') === 'SeedVegetative'"
+              <!-- ASW 9(a/b/c) -->
+              <div v-if="s('TGCovering') === 'SeedVegetative'"
                 style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
-                       padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px"
-              >
+                       padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px">
                 Where appropriate, or in cases of doubt, stability may be further examined by
                 testing a new seed stock to ensure that it exhibits the same characteristics as
                 those shown by the initial material supplied.
                 <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 9(a))</i></a>
               </div>
-              <!-- ASW 9(b) -->
-              <div
-                v-else-if="s('TGCovering') === 'Seed'"
+              <div v-else-if="s('TGCovering') === 'Seed'"
                 style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
-                       padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px"
-              >
+                       padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px">
                 Where appropriate, or in cases of doubt, stability may be further examined by
                 testing a new seed stock to ensure that it exhibits the same characteristics as
                 those shown by the initial material supplied.
                 <a href="#" style="color: #496D31; font-size: 12px; margin-left: 4px"><i>(ASW 9(b))</i></a>
               </div>
-              <!-- ASW 9(c) -->
-              <div
-                v-else-if="s('TGCovering') === 'Vegetative'"
+              <div v-else-if="s('TGCovering') === 'Vegetative'"
                 style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
-                       padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px"
-              >
+                       padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px">
                 Where appropriate, or in cases of doubt, stability may be further examined by
                 testing a new plant stock to ensure that it exhibits the same characteristics as
                 those shown by the initial material supplied.
@@ -729,20 +720,16 @@ function updatePropMethodField(
               </div>
             </div>
 
-            <!-- ── Stability assessment: hybrid varieties ── -->
-            <!-- legacy: assessment_4_3_subtitle_2 + assessment_4_3_question -->
+            <!-- Stability assessment: hybrid varieties -->
+            <!--
+              DB: IsParentLineAssessed = "Y"  ALLOWED_FIELDS: IsParentLineAssessed ✓
+            -->
             <div style="display: flex; flex-direction: column; gap: 10px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
                 Stability assessment: hybrid varieties
               </h3>
-
-              <!--
-                legacy: parentLineAssessed  →  ALLOWED: IsParentLineAssessed
-              -->
-              <div
-                style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
-                       border: 2px solid #CEDD80; border-radius: 12px"
-              >
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
+                          border: 2px solid #CEDD80; border-radius: 12px">
                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
                   <label style="font-size: 14px; font-weight: 500; color: var(--color-neutral-800); flex: 1">
                     Does uniformity and stability of parent lines need to be assessed?
@@ -758,12 +745,10 @@ function updatePropMethodField(
                   </RadioGroup>
                 </div>
 
-                <!-- ASW 10 — visible when parentLineAssessed = Y -->
-                <div
-                  v-if="s('IsParentLineAssessed') === 'Y'"
+                <!-- ASW 10 -->
+                <div v-if="s('IsParentLineAssessed') === 'Y'"
                   style="font-size: 13px; color: var(--color-neutral-700); line-height: 1.6;
-                         padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px"
-                >
+                         padding: 6px 10px; background: var(--color-neutral-100); border-radius: 4px">
                   Where appropriate, or in cases of doubt, the stability of a hybrid variety may,
                   in addition to an examination of the hybrid variety itself, also be assessed by
                   examination of the uniformity and stability of its parent lines.
@@ -776,7 +761,7 @@ function updatePropMethodField(
 
             <!-- Additional stability information -->
             <!--
-              legacy: stabilityAddInfo textarea (Add/Remove Paragraph)  →  ALLOWED: StabilityAddInfo
+              DB: StabilityAddInfo = "<p>test 4.3</p>"  ALLOWED_FIELDS: StabilityAddInfo ✓
             -->
             <div style="display: flex; flex-direction: column; gap: 6px">
               <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
