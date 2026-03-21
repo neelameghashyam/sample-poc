@@ -21,6 +21,13 @@ function onFieldChange(field: string, value: string | null | undefined) {
 function setRadio(field: string, value: 'Y' | 'N') {
   onFieldChange(field, value);
 }
+
+const botanicalNames = computed(() =>
+  store.upovCodes
+    .map((uc) => uc.botanicalName.replace(/<\/?p>/g, '').trim())
+    .join(', '),
+);
+
 </script>
 
 <template>
@@ -42,7 +49,7 @@ function setRadio(field: string, value: 'Y' | 'N') {
           <!-- Static intro sentence: "These Test Guidelines apply to all varieties of {botanical_name}" -->
           <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px">
             These Test Guidelines apply to all varieties of
-            <strong>{{ data.Variety_Type || '…' }}</strong>
+            <strong>{{ botanicalNames  || '…' }}</strong>
           </p>
 
           <!-- Continuation sentence (maps to Sub_OtherInfo / continueSentenceInfo) -->
