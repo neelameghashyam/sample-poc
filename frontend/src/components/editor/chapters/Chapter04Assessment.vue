@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { RadioGroup, RadioOption, Input, Button } from 'upov-ui';
+import { RadioGroup, RadioOption, Input } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useChapterPreview } from '@/composables/useChapterPreview';
 import { useTinymce } from '@/composables/useTinymce';
@@ -72,18 +72,25 @@ function pmSecond(pm: any): string { return (pm.NumberOfPlants ?? '').split(';')
 
 const addingPropMethod = ref(false);
 
+// All propagation method operations now go through the single
+// PATCH /api/test-guidelines/:id/chapters/04  using the _action field:
+//   _action: "pm_create" | "pm_update" | "pm_delete"
+//   _pmId:   AssesmentMethodPropogation_ID  (for update/delete)
+
 async function addPropMethod() {
   if (addingPropMethod.value || !store.tgId) return;
   addingPropMethod.value = true;
   try {
-    const row = await editorApi.createExamPropMethod(store.tgId, '04', {
+    const res = await editorApi.patchChapter(store.tgId, '04', {
+      _action: 'pm_create',
       PropogationMethod: '',
       OtherPropogationMethodInfo: '',
       NumberOfPlants: ';',
       NumberOfPartsOfPlants: '',
       isPartsOfSinglePlants: 'N',
     });
-    store.propagationMethods.assessment.push(row);
+    // BE returns { ok: true, row: {...} }
+    if (res?.row) store.propagationMethods.assessment.push(res.row);
     markDirty();
   } finally {
     addingPropMethod.value = false;
@@ -92,7 +99,10 @@ async function addPropMethod() {
 
 async function removePropMethod(pmId: number) {
   if (!store.tgId) return;
-  await editorApi.deleteExamPropMethod(store.tgId, '04', pmId);
+  await editorApi.patchChapter(store.tgId, '04', {
+    _action: 'pm_delete',
+    _pmId: pmId,
+  });
   store.propagationMethods.assessment = store.propagationMethods.assessment.filter(
     (m: any) => m.AssesmentMethodPropogation_ID !== pmId
   );
@@ -102,7 +112,9 @@ async function removePropMethod(pmId: number) {
 async function updatePmField(pm: any, field: string, value: string) {
   pm[field] = value;
   if (!store.tgId) return;
-  await editorApi.updateExamPropMethod(store.tgId, '04', pm.AssesmentMethodPropogation_ID, {
+  await editorApi.patchChapter(store.tgId, '04', {
+    _action: 'pm_update',
+    _pmId: pm.AssesmentMethodPropogation_ID,
     [field]: value,
   });
   markDirty();
