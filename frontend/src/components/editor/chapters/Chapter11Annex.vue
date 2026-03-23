@@ -9,9 +9,11 @@ import { useTinymce } from '@/composables/useTinymce';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 400 });
-const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('11');
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
+  useChapterPreview('11');
 
-const data = computed(() => store.chapters['11']);
+// Null-safe: DB returns null for unset annexRefData
+const data = computed(() => store.chapters['11'] ?? {});
 
 function onContentChange(value: string) {
   store.autosave('11', 'annexRefData', value);
@@ -29,16 +31,37 @@ function onContentChange(value: string) {
     <template #edit>
       <Card elevation="low">
         <div style="display: flex; flex-direction: column; gap: 12px">
-          <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">11.1 Annex content</h2>
-          <p style="font-size: 14px; font-weight: 400; color: #606060; line-height: 20px">
-            Supplementary reference data and annexes for these Test Guidelines.
-          </p>
+
+          <!--
+            legacy: <h4>Annex</h4>
+            Section heading matches the tab label in legacy JSP
+          -->
+          <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">
+            Annex
+          </h2>
+
+          <!--
+            legacy: form:label path="annexRefData"
+            "Please enter additional information beyond that provided in
+             Chapters 1 to 10 of the Test Guidelines:"
+          -->
+          <label style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
+            Please enter additional information beyond that provided in Chapters 1 to 10 of the
+            Test Guidelines:
+          </label>
+
+          <!--
+            legacy: form:textarea id="annexRefData" wrapped with TinyMCE
+            DB field: annexRefData  →  ALLOWED_FIELDS: annexRefData
+            Null-safe: (data.annexRefData ?? '') prevents null crashing TinyMCE on initial load
+          -->
           <Editor
-            :model-value="data.annexRefData || ''"
+            :model-value="(data as any).annexRefData ?? ''"
             :api-key="apiKey"
             :init="init"
             @update:model-value="onContentChange"
           />
+
         </div>
       </Card>
     </template>
