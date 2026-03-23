@@ -80,7 +80,7 @@ async function handleImport() {
 
     <FooterAtom
       :has-previous-chapter="store.activeChapterIndex > 0"
-      :has-next-chapter="store.activeChapterIndex < 10"
+      :has-next-chapter="store.activeChapterIndex < store.chapterList.length - 1"
       export-label="Export"
       :import-loading="importLoading"
       @previous-chapter="store.goPrevious()"

@@ -8,6 +8,7 @@ import EditorStepper from './EditorStepper.vue';
 import EditorFooter from './EditorFooter.vue';
 
 // Store-connected chapter components
+import Chapter00CoverPage from '@/components/editor/chapters/Chapter00CoverPage.vue';
 import Chapter01Subject from '@/components/editor/chapters/Chapter01Subject.vue';
 import Chapter05Grouping from '@/components/editor/chapters/Chapter05Grouping.vue';
 import Chapter06Characteristics from '@/components/editor/chapters/Chapter06Characteristics.vue';
@@ -80,21 +81,22 @@ onBeforeRouteLeave(() => {
 // Map chapter index → component.
 // Chapters without a dedicated component yet fall back to a placeholder.
 const chapterComponents = [
-  Chapter01Subject,       // 0 → ch01
-  Chapter02Material,      // 1 → ch02
-  Chapter03Examination,   // 2 → ch03
-  Chapter04Assessment,    // 3 → ch04
-  Chapter05Grouping,      // 4 → ch05
-  Chapter06Characteristics, // 5 → ch06
-  Chapter07Table,         // 6 → ch07
-  Chapter08Explanations,  // 7 → ch08
-  Chapter09Literature,    // 8 → ch09
-  Chapter10TechQuestionnaire, // 9 → ch10
-  Chapter11Annex,         // 10 → ch11
+  Chapter00CoverPage,         // 0 → ch00
+  Chapter01Subject,           // 1 → ch01
+  Chapter02Material,          // 2 → ch02
+  Chapter03Examination,       // 3 → ch03
+  Chapter04Assessment,        // 4 → ch04
+  Chapter05Grouping,          // 5 → ch05
+  Chapter06Characteristics,   // 6 → ch06
+  Chapter07Table,             // 7 → ch07
+  Chapter08Explanations,      // 8 → ch08
+  Chapter09Literature,        // 9 → ch09
+  Chapter10TechQuestionnaire, // 10 → ch10
+  Chapter11Annex,             // 11 → ch11
 ];
 
 const ActiveChapter = computed(
-  () => chapterComponents[store.activeChapterIndex] ?? Chapter01Subject,
+  () => chapterComponents[store.activeChapterIndex] ?? Chapter00CoverPage,
 );
 
 function backToDashboard() {
@@ -151,7 +153,7 @@ watchEffect(() => {
 
         <main class="editor-main">
           <h1 class="editor-chapter-title">
-            {{ store.activeChapterNumber }}. {{ store.activeChapterTitle }}
+            {{ store.activeChapter.stepperLabel ?? store.activeChapterNumber }}. {{ store.activeChapterTitle }}
           </h1>
 
           <KeepAlive>

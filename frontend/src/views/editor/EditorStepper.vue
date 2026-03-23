@@ -8,7 +8,7 @@ const store = useEditorStore();
 
 const steps = computed<Step[]>(() =>
   store.chapterList.map((ch, idx) => ({
-    number: String(Number(ch.number)),
+    number: ch.stepperLabel ?? String(Number(ch.number)),
     title: ch.sidebarTitle,
     state: idx === store.activeChapterIndex ? 'active' : 'inactive' as const,
   })),

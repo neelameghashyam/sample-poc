@@ -27,9 +27,10 @@ export interface UpovCode {
 
 // ── Chapter navigation ───────────────────────────────────────────────────────
 export interface ChapterMeta {
-  number: string; // '01' – '11'
+  number: string;        // '00' – '11'
   sidebarTitle: string;
   pageTitle: string;
+  stepperLabel?: string; // Custom label shown in the stepper (e.g. 'C', 'A'); falls back to numeric display
 }
 
 // ── Shared ───────────────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ export const useEditorStore = defineStore('editor', () => {
   const chapterNavCollapsed = ref(false);
 
   const chapterList: ChapterMeta[] = [
+    { number: '00', sidebarTitle: 'Cover page information', pageTitle: 'Cover Page Information', stepperLabel: 'C' },
     { number: '01', sidebarTitle: 'Subject', pageTitle: 'Subject of these Test Guidelines' },
     { number: '02', sidebarTitle: 'Material', pageTitle: 'Material Required' },
     { number: '03', sidebarTitle: 'Examination', pageTitle: 'Method of Examination' },
@@ -45,7 +46,7 @@ export const useEditorStore = defineStore('editor', () => {
     { number: '08', sidebarTitle: 'Explanations', pageTitle: 'Explanations' },
     { number: '09', sidebarTitle: 'Literature', pageTitle: 'Literature' },
     { number: '10', sidebarTitle: 'Technical questionnaire', pageTitle: 'Technical Questionnaire' },
-    { number: '11', sidebarTitle: 'Annex', pageTitle: 'Annex' },
+    { number: '11', sidebarTitle: 'Annex', pageTitle: 'Annex', stepperLabel: 'A' },
   ];
 
   const activeChapter = computed(() => chapterList[activeChapterIndex.value]);
@@ -144,7 +145,7 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function goNext() {
-    if (activeChapterIndex.value < 10) activeChapterIndex.value++;
+    if (activeChapterIndex.value < chapterList.length - 1) activeChapterIndex.value++;
   }
 
   function goPrevious() {
