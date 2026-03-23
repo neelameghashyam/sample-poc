@@ -32,34 +32,13 @@ function onContentChange(value: string) {
     <template #edit>
       <Card elevation="low">
         <div style="display: flex; flex-direction: column; gap: 12px">
-
-          <!--
-            legacy: <h4>9. Literature</h4>
-            Matches the tab label and section heading in legacy JSP
-          -->
-          <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">
-            9. Literature
-          </h2>
-
-          <!--
-            legacy right-hand sidebar link:
-            <a href="JavaScript:display('GN30');">Literature (GN 30)</a>
-          -->
+          
           <Links :links="[{ text: 'Literature (GN 30)' }]" />
 
-          <!--
-            legacy: <form:label path="literatureReferences">Literature References:</form:label>
-            Appears directly above the TinyMCE editor
-          -->
           <label style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
             Literature References:
           </label>
 
-          <!--
-            legacy: form:textarea id="literatureReferences" wrapped with TinyMCE
-            DB field: LiteratureReferences  →  ALLOWED_FIELDS: LiteratureReferences
-            Null-safe: ?? '' prevents null crashing TinyMCE on initial load
-          -->
           <Editor
             :model-value="(data as any).LiteratureReferences ?? ''"
             :api-key="apiKey"
@@ -67,12 +46,7 @@ function onContentChange(value: string) {
             @update:model-value="onContentChange"
           />
 
-          <!--
-            legacy: <label> below the textarea showing the format hint
-            "(Literature should be presented as follows: for ex [Surname 1], [Initials 1].,
-             [Surname 2], [Initials 2] etc., [Year]: [Title]. [Publication]. [Town],
-             [City / Region], [Country*], [pp. n1 to n2 or x pp.] )"
-          -->
+          
           <p style="font-size: 13px; font-weight: 400; color: var(--color-neutral-600); line-height: 18px; margin: 0">
             (<strong>Literature should be presented as follows:</strong> for ex [Surname 1], [Initials 1].,
             [Surname 2], [Initials 2] etc.,<br />

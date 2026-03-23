@@ -3,7 +3,8 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import api from '@/services/api';
-import { Alert, Button, CheckboxGroup, FormField, PageHeader, Card, Icon } from 'upov-ui';
+import { Alert, Button, CheckboxGroup, FormField, PageHeader, Card } from 'upov-ui';
+import FieldDisplay from '@/components/common/FieldDisplay.vue';
 import type { StatusBadgeVariant } from 'upov-ui';
 
 const router = useRouter();
@@ -52,7 +53,7 @@ async function handleSave() {
       ? `TWPs updated. You were assigned as IE to ${res.data.assigned} new test guideline(s).`
       : 'TWPs updated.';
     sessionStorage.setItem('toast', msg);
-    router.push('/documents');
+    router.push('/test-guidelines');
   } catch (err: unknown) {
     error.value = 'Failed to update TWPs. Please try again.';
     console.error('Update TWPs error:', err);
@@ -75,32 +76,15 @@ function handleClose() {
   <div class="profile-page">
     <Card elevation="medium" max-width="560px">
       <div class="profile-header">
-        <PageHeader title="Profile" :status-badge-label="roleLabel" :status-badge-variant="roleVariant" />
-        <button class="logout-icon" title="Logout" @click="handleLogout">
-          <Icon icon="box-arrow-right" />
-        </button>
+        <PageHeader title="Profile" :status-badge-label="roleLabel" :status-badge-variant="roleVariant" borderless />
+        <Button type="secondary" size="xs" icon-left="box-arrow-right" icon-only title="Logout" @click="handleLogout" />
       </div>
 
       <div class="profile-info">
-        <div class="field-inline">
-          <span class="field-label">Username</span>
-          <span class="field-value">{{ authStore.user?.username || '' }}</span>
-        </div>
-
-        <div class="field-inline">
-          <span class="field-label">Full Name</span>
-          <span class="field-value">{{ authStore.user?.name || '' }}</span>
-        </div>
-
-        <div class="field-inline">
-          <span class="field-label">Email</span>
-          <span class="field-value">{{ authStore.user?.email || '' }}</span>
-        </div>
-
-        <div class="field-inline">
-          <span class="field-label">Organization</span>
-          <span class="field-value">{{ authStore.user?.officeCode || '' }}</span>
-        </div>
+        <FieldDisplay label="Username" :value="authStore.user?.username || ''" />
+        <FieldDisplay label="Full Name" :value="authStore.user?.name || ''" />
+        <FieldDisplay label="Email" :value="authStore.user?.email || ''" />
+        <FieldDisplay label="Organization" :value="authStore.user?.officeCode || ''" />
       </div>
 
       <Alert v-if="error" variant="error" class="profile-alert">{{ error }}</Alert>
@@ -140,30 +124,6 @@ function handleClose() {
   padding-bottom: 12px;
 }
 
-.profile-header :deep(.page-header) {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.logout-icon {
-  display: flex;
-  align-items: center;
-  padding: 6px;
-  border: 1px solid var(--color-neutral-400);
-  background: none;
-  color: var(--color-neutral-400);
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 1.125rem;
-  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
-}
-
-.logout-icon:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-text-primary);
-  background: var(--color-bg-light);
-}
-
 .profile-info {
   display: flex;
   flex-direction: column;
@@ -190,20 +150,4 @@ function handleClose() {
   border-top: 1px solid var(--color-neutral-200);
 }
 
-.field-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.field-label {
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  min-width: 90px;
-}
-
-.field-value {
-  color: var(--color-text-primary);
-}
 </style>

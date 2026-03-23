@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { DataTable, StatusBadge, Chip, ActionMenu } from 'upov-ui';
+import { DataTable, StatusBadge, ActionMenu } from 'upov-ui';
 import type { DataTableColumn, DataTableSortState, StatusBadgeVariant, ActionMenuItem } from 'upov-ui';
 import type { TGStatus, TestGuidelineListItem } from '@/types';
 
@@ -19,7 +19,6 @@ interface Props {
   statusLabel?: string;
   actions?: ActionMenuItem[];
   dateColumn?: { key: string; label: string };
-  showTwpColumn?: boolean;
   showDeadlineColumn?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
@@ -36,7 +35,6 @@ const props = withDefaults(defineProps<Props>(), {
   statusLabel: 'Status (Period)',
   actions: () => [{ id: 'edit', label: 'Edit', icon: 'pencil' }],
   dateColumn: () => ({ key: 'lastUpdated', label: 'Last Updated' }),
-  showTwpColumn: true,
   showDeadlineColumn: false,
   searchable: false,
   searchPlaceholder: 'Search...',
@@ -57,9 +55,6 @@ const columns = computed<DataTableColumn[]>(() => {
     { key: 'reference', label: 'TG Reference', width: '180px' },
     { key: 'name', label: 'Common Name', width: '180px' },
   ];
-  if (props.showTwpColumn) {
-    cols.push({ key: 'twps', label: 'TWP', width: '140px' });
-  }
   cols.push({ key: 'leadExpert', label: 'Leading Expert', width: '200px' });
   if (props.statusOptions.length) {
     cols.push({ key: 'status', label: props.statusLabel, width: '160px', filterable: true, filterType: 'select', filterOptions: props.statusOptions });
@@ -71,46 +66,15 @@ const columns = computed<DataTableColumn[]>(() => {
   return cols;
 });
 
-const statusLabels: Record<TGStatus, string> = {
-  LED: 'LE Draft',
-  IEC: 'IE Comments',
-  LEC: 'LE Checking',
-  LES: 'LE Signed Off',
-  ADT: 'Adopted',
-  ABT: 'Aborted',
-  SSD: 'Suspended',
-  ARC: 'Archived',
-  STU: 'Sent to UPOV',
-  DEL: 'Deleted',
-};
-
-const statusVariants: Record<TGStatus, StatusBadgeVariant> = {
-  LED: 'warning',
-  IEC: 'info',
-  LEC: 'success',
-  LES: 'info',
-  ADT: 'success',
-  ABT: 'danger',
-  SSD: 'neutral',
-  ARC: 'neutral',
-  STU: 'warning',
-  DEL: 'danger',
-};
+import { STATUS_LABELS, STATUS_VARIANTS } from '@/config/constants';
 
 function formatDate(value: string | null): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString();
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function highlightText(text: string, filter: string): string {
-  if (!filter || !text) return text;
-  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const re = new RegExp(`(${escapeRegex(filter)})`, 'gi');
-  return escaped.replace(re, '<mark class="data-table__mark">$1</mark>');
+  if (!value) return '';
+  const d = new Date(value);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null);
@@ -120,8 +84,7 @@ function toggleFilters(colKey?: string) {
 }
 
 function focusSearch() {
-  const input = dataTableRef.value?.$el?.querySelector('.data-table__search input') as HTMLInputElement | null;
-  input?.focus();
+  dataTableRef.value?.focusSearch();
 }
 
 defineExpose({ toggleFilters, focusSearch });
@@ -141,6 +104,7 @@ function onRowClick(row: Record<string, any>) {
     :selected-row-key="selectedId"
     :loading="loading"
     :loading-rows="8"
+    appearance="card"
     filter-mode="remote"
     :filter-values="filterValues"
     :sort-state="sortState"
@@ -154,30 +118,15 @@ function onRowClick(row: Record<string, any>) {
     @sort="(state: DataTableSortState) => emit('sort', state)"
     @search="(value: string) => emit('search', value)"
   >
-    <template #cell-reference="{ row, filter }">
+    <template #cell-reference="{ row, highlight }">
       <RouterLink :to="`/admin/test-guidelines/${row.id}`" class="tg-link" @click.stop>
-        <span v-if="filter" v-html="highlightText(row.reference, filter)" />
-        <template v-else>{{ row.reference }}</template>
+        <span v-html="highlight ? highlight(row.reference) : row.reference" />
       </RouterLink>
     </template>
 
-    <template #cell-twps="{ row }">
-      <div v-if="row.twps" class="twp-chips">
-        <Chip
-          v-for="code in row.twps.split(',')"
-          :key="code"
-          :label="code.trim()"
-          size="small"
-          :removable="false"
-          variant="tonal"
-        />
-      </div>
-    </template>
-
-    <template #cell-leadExpert="{ row, filter }">
+    <template #cell-leadExpert="{ row, highlight }">
       <template v-if="row.leadExpert">
-        <span v-if="filter" v-html="highlightText(row.leadExpert, filter)" />
-        <template v-else>{{ row.leadExpert }}</template>
+        <span v-html="highlight ? highlight(row.leadExpert) : row.leadExpert" />
         <span v-if="row.leadExpertCountry" class="expert-country"> ({{ row.leadExpertCountry }})</span>
       </template>
     </template>
@@ -185,8 +134,8 @@ function onRowClick(row: Record<string, any>) {
     <template #cell-status="{ row }">
       <div class="status-cell">
         <StatusBadge
-          :label="statusLabels[row.status as TGStatus] || row.status"
-          :variant="statusVariants[row.status as TGStatus] || 'neutral'"
+          :label="STATUS_LABELS[row.status as TGStatus] || row.status"
+          :variant="STATUS_VARIANTS[row.status as TGStatus] || 'neutral'"
         />
         <span v-if="!showDeadlineColumn && (row.periodStart || row.periodEnd)" class="status-period">
           ({{ formatDate(row.periodStart) }} – {{ formatDate(row.periodEnd) }})
@@ -227,12 +176,6 @@ function onRowClick(row: Record<string, any>) {
 <style scoped>
 .expert-country {
   color: var(--color-text-secondary);
-}
-
-.twp-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
 }
 
 .status-cell {

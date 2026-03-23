@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { computed, onMounted, onBeforeUnmount, watch, watchEffect } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
-import { Spinner, Button } from 'upov-ui';
+import { Button, Skeleton, useToast } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import EditorHeader from './EditorHeader.vue';
 import EditorStepper from './EditorStepper.vue';
@@ -25,6 +25,7 @@ import Chapter10TechQuestionnaire from '@/components/editor/chapters/Chapter10Te
 const route = useRoute();
 const router = useRouter();
 const store = useEditorStore();
+const toast = useToast();
 
 onMounted(() => {
   const id = Number(route.params.id);
@@ -99,36 +100,44 @@ const ActiveChapter = computed(
 function backToDashboard() {
   router.push({ name: 'admin-test-guidelines' });
 }
+
+// Show save errors via DS toast system
+watchEffect(() => {
+  if (store.saveStatus === 'error' && store.lastSaveError) {
+    toast.show(store.lastSaveError, { variant: 'error' });
+    store.dismissSaveError();
+  }
+});
 </script>
 
 <template>
   <div ref="editorRoot" class="editor-root">
     <!-- Back button -->
-    <div style="display: flex; align-items: center; justify-content: space-between">
+    <div class="editor-back">
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">Back to TG Dashboard</Button>
     </div>
 
     <!-- Loading skeleton -->
     <div v-if="store.loading" class="skel">
       <div class="skel-header">
-        <div class="skel-line skel-line--lg" />
-        <div class="skel-line skel-line--sm" />
+        <Skeleton width="45%" height="18px" />
+        <Skeleton width="30%" height="14px" />
       </div>
       <div class="skel-body">
         <div class="skel-sidebar">
-          <div v-for="n in 6" :key="n" class="skel-line skel-line--md" />
+          <Skeleton v-for="n in 6" :key="n" width="60%" height="14px" />
         </div>
         <div class="skel-content">
-          <div class="skel-line skel-line--lg" />
-          <div class="skel-line skel-line--full" />
-          <div class="skel-line skel-line--full" />
-          <div class="skel-line skel-line--md" />
+          <Skeleton width="45%" height="18px" />
+          <Skeleton width="100%" height="14px" />
+          <Skeleton width="100%" height="14px" />
+          <Skeleton width="60%" height="14px" />
         </div>
       </div>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="store.error" style="display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 64px 0; color: #D32F2F">
+    <div v-else-if="store.error" class="editor-error">
       <p>{{ store.error }}</p>
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">Return to dashboard</Button>
     </div>
@@ -137,11 +146,11 @@ function backToDashboard() {
     <template v-else>
       <EditorHeader />
 
-      <div style="display: flex; align-items: flex-start; gap: 24px">
+      <div class="editor-layout">
         <EditorStepper />
 
-        <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px">
-          <h1 style="font-size: 22px; font-weight: 700; color: var(--color-primary-green-dark); line-height: 27px">
+        <main class="editor-main">
+          <h1 class="editor-chapter-title">
             {{ store.activeChapterNumber }}. {{ store.activeChapterTitle }}
           </h1>
 
@@ -152,14 +161,6 @@ function backToDashboard() {
       </div>
 
       <EditorFooter />
-
-      <!-- Error toast -->
-      <Transition name="toast">
-        <div v-if="store.saveStatus === 'error' && store.lastSaveError" class="error-toast">
-          <span>{{ store.lastSaveError }}</span>
-          <button class="error-toast-close" @click="store.dismissSaveError()">&times;</button>
-        </div>
-      </Transition>
     </template>
   </div>
 </template>
@@ -181,34 +182,48 @@ function backToDashboard() {
   color: var(--color-neutral-800);
 }
 
+.editor-back {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editor-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px 0;
+  color: var(--color-danger, #D32F2F);
+}
+
+.editor-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.editor-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.editor-chapter-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary-green-dark);
+  line-height: 27px;
+}
+
 /* ── Loading skeleton ─────────────────────────────────────────────────────── */
 .skel { display: flex; flex-direction: column; gap: 24px; }
 .skel-header { background: #fff; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .skel-body { display: flex; gap: 24px; }
 .skel-sidebar { width: 220px; flex-shrink: 0; background: #fff; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .skel-content { flex: 1; background: #fff; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-.skel-line { height: 14px; border-radius: 4px; background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-.skel-line--sm { width: 30%; }
-.skel-line--md { width: 60%; }
-.skel-line--lg { width: 45%; height: 18px; }
-.skel-line--full { width: 100%; }
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-/* ── Error toast ─────────────────────────────────────────────────────────── */
-.error-toast {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 16px; background: #D32F2F; color: #fff;
-  border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  font-size: 14px; font-weight: 500; z-index: 1000;
-}
-.error-toast-close {
-  background: none; border: none; color: #fff; font-size: 20px;
-  cursor: pointer; padding: 0 4px; line-height: 1; opacity: 0.8;
-}
-.error-toast-close:hover { opacity: 1; }
-.toast-enter-active, .toast-leave-active { transition: opacity 0.25s, transform 0.25s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(12px); }
 
 /* ── TinyMCE overrides (centralized from EditorHeader + Ch08) ─────────── */
 .editor-root :deep(.tox-tinymce) { border: 1px solid var(--color-primary-green-dark) !important; border-radius: 4px !important; }

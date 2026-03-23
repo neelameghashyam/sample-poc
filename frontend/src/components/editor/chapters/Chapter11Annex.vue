@@ -32,29 +32,11 @@ function onContentChange(value: string) {
       <Card elevation="low">
         <div style="display: flex; flex-direction: column; gap: 12px">
 
-          <!--
-            legacy: <h4>Annex</h4>
-            Section heading matches the tab label in legacy JSP
-          -->
-          <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">
-            Annex
-          </h2>
-
-          <!--
-            legacy: form:label path="annexRefData"
-            "Please enter additional information beyond that provided in
-             Chapters 1 to 10 of the Test Guidelines:"
-          -->
           <label style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
             Please enter additional information beyond that provided in Chapters 1 to 10 of the
             Test Guidelines:
           </label>
 
-          <!--
-            legacy: form:textarea id="annexRefData" wrapped with TinyMCE
-            DB field: annexRefData  →  ALLOWED_FIELDS: annexRefData
-            Null-safe: (data.annexRefData ?? '') prevents null crashing TinyMCE on initial load
-          -->
           <Editor
             :model-value="(data as any).annexRefData ?? ''"
             :api-key="apiKey"

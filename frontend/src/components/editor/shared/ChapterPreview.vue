@@ -2,7 +2,6 @@
 import { ref, onUnmounted } from 'vue';
 import { Icon } from 'upov-ui';
 
-// ─────────────────────────────────────────────────────────────────────────────
 const USE_FLOATING_PANEL = false;
 
 defineProps<{

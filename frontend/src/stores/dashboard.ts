@@ -10,7 +10,7 @@ import type {
   IeComment,
 } from '@/types';
 
-export type DashboardTab = 'active' | 'adopted' | 'archived' | 'submitted' | 'aborted';
+export type DashboardTab = 'twp-drafts' | 'tc-drafts' | 'adopted' | 'archived' | 'submitted' | 'aborted';
 
 interface PaginationMeta {
   page: number;
@@ -22,20 +22,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const testGuidelines = ref<TestGuidelineListItem[]>([]);
   const meta = ref<PaginationMeta>({ page: 1, limit: 20, total: 0 });
   const stats = ref<DashboardStats>({
-    total: 0,
-    draft: 0,
-    ieComments: 0,
-    leChecking: 0,
-    active: 0,
-    adopted: 0,
-    archive: 0,
-    pendingRequests: 0,
+    twpDrafts: 0,
+    archived: 0,
   });
   const loading = ref(false);
   const statsLoading = ref(false);
   const error = ref<string | null>(null);
 
-  const activeTab = ref<DashboardTab>('active');
+  const activeTab = ref<DashboardTab>('twp-drafts');
   const selectedTgId = ref<number | null>(null);
   const selectedTgDetail = ref<TestGuidelineDetail | null>(null);
   const detailLoading = ref(false);
@@ -45,9 +39,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
   let fetchAbortController: AbortController | null = null;
 
   const tabCounts = computed(() => ({
-    active: stats.value.active,
-    adopted: stats.value.adopted,
-    archive: stats.value.archive,
+    twpDrafts: stats.value.twpDrafts,
+    archived: stats.value.archived,
   }));
 
   async function fetchTestGuidelines(params: Record<string, string | number> = {}): Promise<void> {

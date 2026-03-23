@@ -1,4 +1,4 @@
-export type TGStatus = 'LED' | 'IEC' | 'LEC' | 'LES' | 'ADT' | 'ABT' | 'SSD' | 'ARC' | 'STU' | 'DEL';
+export type TGStatus = 'CRT' | 'LED' | 'IEC' | 'LEC' | 'LES' | 'TCD' | 'UOC' | 'TRN' | 'STU' | 'ADT' | 'ARC' | 'ABT' | 'SSD';
 
 export type AuthProvider = 'forgerock' | 'entraid';
 
@@ -11,7 +11,6 @@ export interface User {
   roles: string[];
   authProvider?: AuthProvider;
   isNewUser?: boolean;
-  isDevMode?: boolean;
   statusCode?: string;
   requestStatus?: string;
   officeCode?: string;
@@ -32,22 +31,14 @@ export interface PendingUser {
 }
 
 export interface DashboardStats {
-  total: number;
-  draft: number;
-  ieComments: number;
-  leChecking: number;
-  active: number;
-  adopted: number;
-  archive: number;
+  twpDrafts: number;
+  tcDrafts?: number;
+  archived: number;
   pendingRequests?: number;
-  submitted?: number;
-  aborted?: number;
   twpCounts?: {
-    active: Record<string, number>;
-    adopted: Record<string, number>;
+    twpDrafts: Record<string, number>;
+    tcDrafts?: Record<string, number>;
     archived: Record<string, number>;
-    submitted: Record<string, number>;
-    aborted: Record<string, number>;
   };
 }
 
@@ -65,6 +56,7 @@ export interface TestGuidelineListItem {
   twps: string | null;
   periodStart: string | null;
   periodEnd: string | null;
+  ieCommentCount?: number;
 }
 
 export interface TestGuidelineDetail extends TestGuidelineListItem {

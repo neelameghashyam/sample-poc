@@ -151,7 +151,7 @@ function goPrevious() {
 }
 
 function backToDashboard() {
-  router.push({ name: 'documents-drafts' });
+  router.push({ name: 'tg-twp-drafts' });
 }
 </script>
 

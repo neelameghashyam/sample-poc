@@ -119,20 +119,6 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('auth_provider');
   }
 
-  /**
-   * Dev login bypass - for local testing when OAuth redirect isn't configured
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function devLogin(_username = 'devuser'): Promise<boolean> {
-    // Set a mock token (backend will validate via DEV_BYPASS_AUTH)
-    token.value = 'dev-bypass-token';
-    localStorage.setItem('token', token.value);
-    await fetchUser();
-    return true;
-  }
-
-  const isDevMode = computed(() => useConfigStore().config?.auth.devBypass ?? false);
-
   // Initialize: fetch user if token exists
   if (token.value) {
     fetchUser();
@@ -148,12 +134,10 @@ export const useAuthStore = defineStore('auth', () => {
     needsAccessRequest,
     isPendingApproval,
     hasAccess,
-    isDevMode,
     sessionExpired,
     login,
     loginForgeRock,
     loginEntraID,
-    devLogin,
     handleCallback,
     fetchUser,
     setSessionExpired,

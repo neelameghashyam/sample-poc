@@ -15,13 +15,7 @@ const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, hand
 const data = computed(() => store.chapters['02']);
 
 function onFieldChange(field: string, value: string | null | undefined) {
-  // Merge the updated field into the full chapter 02 snapshot so every PATCH
-  // always carries all existing fields — nothing gets wiped on the BE side.
-  const fullPayload = {
-    ...data.value,
-    [field]: value,
-  };
-  store.autosaveAll('02', fullPayload);
+  store.autosave('02', field, value);
   markDirty();
 }
 
@@ -62,8 +56,7 @@ const seedOptions = [
   }
 ];
 
-// Derive the currently selected option's `value` key by matching stored value
-// (data.SeedQualityReq holds the short key e.g. ASW1(b)Alt1)
+// Derive the currently selected option's value key by matching stored value
 const selectedSeedValue = computed(() => data.value?.SeedQualityReq ?? null);
 
 // Called when a radio is selected — sends the short value key to BE

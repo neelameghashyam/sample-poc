@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { Logo, Button, Spinner, CenteredPage, Card } from 'upov-ui';
+import ProgressBar from '@/components/common/ProgressBar.vue';
 
 type LoginState = 'detecting' | 'wipo-network' | 'chooser' | 'external';
 
-const router = useRouter();
 const authStore = useAuthStore();
 
 const state = ref<LoginState>('detecting');
@@ -25,11 +24,6 @@ async function detectWipoNetwork(): Promise<boolean> {
 }
 
 onMounted(async () => {
-  if (authStore.isDevMode) {
-    state.value = 'chooser';
-    return;
-  }
-
   const onWipoNetwork = await detectWipoNetwork();
 
   if (onWipoNetwork) {
@@ -49,10 +43,6 @@ function cancelRedirect(): void {
   state.value = 'chooser';
 }
 
-async function handleDevLogin(): Promise<void> {
-  await authStore.devLogin();
-  router.push('/documents');
-}
 </script>
 
 <template>
@@ -74,9 +64,7 @@ async function handleDevLogin(): Promise<void> {
           Redirecting to <strong>WIPO Entra ID</strong>
           <a href="#" class="cancel-link" @click.prevent="cancelRedirect">Cancel</a>
         </p>
-        <div class="progress-bar">
-          <div class="progress-bar-fill" />
-        </div>
+        <ProgressBar animated :duration="3000" size="medium" />
       </template>
 
       <!-- Chooser: both providers -->
@@ -99,14 +87,6 @@ async function handleDevLogin(): Promise<void> {
         </Button>
       </template>
 
-      <!-- Dev mode bypass (all states except detecting) -->
-      <div v-if="authStore.isDevMode && state !== 'detecting'" class="dev-mode">
-        <hr class="divider" />
-        <p class="dev-label">Development Mode</p>
-        <Button type="tertiary" size="medium" block @click="handleDevLogin">
-          Dev Login (bypass OAuth)
-        </Button>
-      </div>
     </Card>
   </CenteredPage>
 </template>
@@ -135,25 +115,6 @@ async function handleDevLogin(): Promise<void> {
   font-size: 0.875rem;
 }
 
-.progress-bar {
-  height: 4px;
-  background: var(--color-border-light, #e0e0e0);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: var(--color-primary-green-bright, #4caf50);
-  border-radius: 2px;
-  animation: progress 3s ease-in-out forwards;
-}
-
-@keyframes progress {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
 .idp-header {
   font-size: 0.875rem;
   font-weight: 600;
@@ -161,21 +122,4 @@ async function handleDevLogin(): Promise<void> {
   margin-bottom: 16px;
 }
 
-.dev-mode {
-  margin-top: 24px;
-}
-
-.divider {
-  border: none;
-  border-top: 1px solid var(--color-border-light);
-  margin: 16px 0;
-}
-
-.dev-label {
-  font-size: 0.75rem;
-  color: var(--color-orange);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 12px;
-}
 </style>

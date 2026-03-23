@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { RadioGroup, RadioOption, Input } from 'upov-ui';
+import { RadioGroup, RadioOption, Input, Button } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useChapterPreview } from '@/composables/useChapterPreview';
 import { useTinymce } from '@/composables/useTinymce';
 import { editorApi } from '@/services/editor-api';
 import SectionAccordion from '@/components/editor/shared/SectionAccordion.vue';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
+import type { AssessmentPropMethod } from '@/types/editor';
 
 const store = useEditorStore();
 const { apiKey, init } = useTinymce({ height: 200 });
@@ -20,7 +21,7 @@ const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, hand
 const data = computed(() => store.chapters['04'] ?? {});
 
 function s(field: string): string {
-  const v = (data.value as any)[field];
+  const v = (data.value as Record<string, unknown>)[field];
   return v == null ? '' : String(v);
 }
 
@@ -63,12 +64,12 @@ function getTypeOfPropagation(): string {
 const propMethods = computed(() => store.propagationMethods?.assessment ?? []);
 
 // Get display name: OtherPropogationMethodInfo without prefix char, or PropogationMethod
-function pmName(pm: any): string {
+function pmName(pm: AssessmentPropMethod): string {
   if (pm.OtherPropogationMethodInfo?.length > 1) return pm.OtherPropogationMethodInfo.substring(1);
   return pm.PropogationMethod ?? '';
 }
-function pmFirst(pm: any): string  { return (pm.NumberOfPlants ?? '').split(';')[0] ?? ''; }
-function pmSecond(pm: any): string { return (pm.NumberOfPlants ?? '').split(';')[1] ?? ''; }
+function pmFirst(pm: AssessmentPropMethod): string  { return (pm.NumberOfPlants ?? '').split(';')[0] ?? ''; }
+function pmSecond(pm: AssessmentPropMethod): string { return (pm.NumberOfPlants ?? '').split(';')[1] ?? ''; }
 
 const addingPropMethod = ref(false);
 
@@ -104,13 +105,13 @@ async function removePropMethod(pmId: number) {
     _pmId: pmId,
   });
   store.propagationMethods.assessment = store.propagationMethods.assessment.filter(
-    (m: any) => m.AssesmentMethodPropogation_ID !== pmId
+    (m: AssessmentPropMethod) => m.AssesmentMethodPropogation_ID !== pmId
   );
   markDirty();
 }
 
-async function updatePmField(pm: any, field: string, value: string) {
-  pm[field] = value;
+async function updatePmField(pm: AssessmentPropMethod, field: string, value: string) {
+  (pm as Record<string, unknown>)[field] = value;
   if (!store.tgId) return;
   await editorApi.patchChapter(store.tgId, '04', {
     _action: 'pm_update',
@@ -120,13 +121,13 @@ async function updatePmField(pm: any, field: string, value: string) {
   markDirty();
 }
 
-function setPmFirst(pm: any, v: string) {
+function setPmFirst(pm: AssessmentPropMethod, v: string) {
   updatePmField(pm, 'NumberOfPlants', v + ';' + pmSecond(pm));
 }
-function setPmSecond(pm: any, v: string) {
+function setPmSecond(pm: AssessmentPropMethod, v: string) {
   updatePmField(pm, 'NumberOfPlants', pmFirst(pm) + ';' + v);
 }
-function setPmName(pm: any, v: string) {
+function setPmName(pm: AssessmentPropMethod, v: string) {
   // Always save to OtherPropogationMethodInfo to match legacy behaviour
   updatePmField(pm, 'OtherPropogationMethodInfo', v);
 }
@@ -151,7 +152,7 @@ function setPmName(pm: any, v: string) {
             <!-- ── General Recommendations ── -->
             <div style="display: flex; flex-direction: column; gap: 12px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
-                General Recommendations
+                4.1.1 General Recommendations
               </h3>
 
               <!--
@@ -245,7 +246,7 @@ function setPmName(pm: any, v: string) {
             <!-- ── Number of plants / Parts of plants to be Examined ── -->
             <div style="display: flex; flex-direction: column; gap: 12px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
-                Number of plants / Parts of plants to be Examined
+                4.1.4 Number of plants / Parts of plants to be Examined
               </h3>
 
               <!--
@@ -431,27 +432,24 @@ function setPmName(pm: any, v: string) {
                   </div>
                 </div>
 
-                <!-- Add / Remove method buttons — legacy: "Add method of Propogation" / "Remove method of Propogation" -->
+                <!-- Add / Remove method buttons -->
                 <div style="display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap">
-                  <button
+                  <Button
+                    type="primary"
+                    size="small"
                     :disabled="addingPropMethod"
-                    style="background: #CEDD80; border: none; border-radius: 6px;
-                           padding: 8px 16px; font-size: 13px; font-weight: 600;
-                           cursor: pointer; color: #333; opacity: 1"
-                    :style="addingPropMethod ? { opacity: '0.6', cursor: 'wait' } : {}"
                     @click="addPropMethod"
                   >
-                    Add method of Propagation
-                  </button>
-                  <button
+                    {{ addingPropMethod ? 'Adding...' : '+ Add method of Propagation' }}
+                  </Button>
+                  <Button
                     v-if="propMethods.length > 0"
-                    style="background: #CEDD80; border: none; border-radius: 6px;
-                           padding: 8px 16px; font-size: 13px; font-weight: 600;
-                           cursor: pointer; color: #333"
+                    type="danger"
+                    size="small"
                     @click="removePropMethod(propMethods[propMethods.length - 1].AssesmentMethodPropogation_ID)"
                   >
                     Remove method of Propagation
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -689,7 +687,7 @@ function setPmName(pm: any, v: string) {
             -->
             <div style="display: flex; flex-direction: column; gap: 10px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
-                Stability assessment: general
+                4.3.1 Stability assessment: general
                 <span style="color: #D32F2F"> *</span>
               </h3>
               <RadioGroup
@@ -738,7 +736,7 @@ function setPmName(pm: any, v: string) {
             -->
             <div style="display: flex; flex-direction: column; gap: 10px">
               <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0">
-                Stability assessment: hybrid varieties
+                4.3.2 Stability assessment: hybrid varieties
               </h3>
               <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px;
                           border: 2px solid #CEDD80; border-radius: 12px">

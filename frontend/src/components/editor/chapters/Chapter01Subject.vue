@@ -49,7 +49,7 @@ const botanicalNames = computed(() =>
           <!-- Static intro sentence: "These Test Guidelines apply to all varieties of {botanical_name}" -->
           <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px">
             These Test Guidelines apply to all varieties of
-<strong v-html="botanicalNames || '…'" />
+            <strong v-html="botanicalNames  || '…' "/>
           </p>
 
           <!-- Continuation sentence (maps to Sub_OtherInfo / continueSentenceInfo) -->
@@ -65,13 +65,13 @@ const botanicalNames = computed(() =>
             />
           </div>
 
-          <!-- Reference links (GN3–GN6) -->
+          <!-- Reference links (GN3–GN6) 
           <Links :links="[
             { text: 'More than one species (GN3)' },
             { text: 'Different types or groups within a species or genus (GN4)' },
             { text: 'Family name (GN5)' },
             { text: 'Guidance for New Types and Species (GN6)' },
-          ]" />
+          ]" /> -->
 
           <!-- ── Question 1.1.1 — Subject Clarification (SubjectClarificationIndicator) ── -->
           <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">

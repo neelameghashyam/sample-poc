@@ -12,19 +12,42 @@ declare module 'vue-router' {
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/documents/drafts',
+    redirect: '/test-guidelines/twp-drafts',
   },
   {
-    path: '/documents',
-    component: () => import('@/views/documents/DocumentsLayout.vue'),
+    path: '/dashboard',
+    name: 'dashboard',
+    component: () => import('@/views/DashboardView.vue'),
+    meta: { requiresAuth: true, requiresAccess: true },
+  },
+  {
+    path: '/test-guidelines',
+    component: () => import('@/views/test-guidelines/TestGuidelinesLayout.vue'),
     meta: { requiresAuth: true, requiresAccess: true },
     children: [
-      { path: '', redirect: '/documents/drafts' },
-      { path: 'drafts', name: 'documents-drafts', component: () => import('@/views/documents/DraftsView.vue') },
-      { path: 'adopted', name: 'documents-adopted', component: () => import('@/views/documents/AdoptedView.vue'), meta: { requiresAdmin: true } },
-      { path: 'archived', name: 'documents-archived', component: () => import('@/views/documents/ArchivedView.vue') },
-      { path: 'submitted', name: 'documents-submitted', component: () => import('@/views/documents/SubmittedView.vue'), meta: { requiresAdmin: true } },
-      { path: 'aborted', name: 'documents-aborted', component: () => import('@/views/documents/AbortedView.vue'), meta: { requiresAdmin: true } },
+      { path: '', redirect: '/test-guidelines/twp-drafts' },
+      { path: 'twp-drafts', name: 'tg-twp-drafts', component: () => import('@/views/test-guidelines/TwpDraftsView.vue') },
+      { path: 'tc-drafts', name: 'tg-tc-drafts', component: () => import('@/views/test-guidelines/TcDraftsView.vue') },
+      {
+        path: 'adopted', name: 'tg-adopted', meta: { requiresAdmin: true },
+        component: () => import('@/views/test-guidelines/StatusView.vue'),
+        props: { tab: 'adopted', sortKey: 'adoptionDate', twpCountsKey: 'adopted', dateColumn: { key: 'adoptionDate', label: 'Adoption Date' }, showStatCards: false },
+      },
+      {
+        path: 'archived', name: 'tg-archived',
+        component: () => import('@/views/test-guidelines/StatusView.vue'),
+        props: { tab: 'archived', sortKey: 'statusDate', twpCountsKey: 'archived', dateColumn: { key: 'statusDate', label: 'Archived Date' } },
+      },
+      {
+        path: 'submitted', name: 'tg-submitted', meta: { requiresAdmin: true },
+        component: () => import('@/views/test-guidelines/StatusView.vue'),
+        props: { tab: 'submitted', sortKey: 'statusDate', twpCountsKey: 'submitted', dateColumn: { key: 'statusDate', label: 'Sent to UPOV Date' } },
+      },
+      {
+        path: 'aborted', name: 'tg-aborted', meta: { requiresAdmin: true },
+        component: () => import('@/views/test-guidelines/StatusView.vue'),
+        props: { tab: 'aborted', sortKey: 'statusDate', twpCountsKey: 'aborted', dateColumn: { key: 'statusDate', label: 'Aborted Date' }, showStatCards: false },
+      },
     ],
   },
   {
@@ -112,7 +135,7 @@ router.beforeEach(async (to, _from, next) => {
   } else if (to.meta.requiresAccess && (authStore.needsAccessRequest || authStore.isPendingApproval)) {
     next({ name: 'access-request' });
   } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next({ name: 'documents-drafts' });
+    next({ name: 'tg-twp-drafts' });
   } else {
     next();
   }

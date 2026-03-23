@@ -1,6 +1,5 @@
 export interface AppConfig {
   auth: {
-    devBypass: boolean;
     oidc: {
       authorizationUri: string;
       clientId: string;

@@ -224,6 +224,7 @@ onUnmounted(() => {
           :rows="store.pendingUsers"
           row-key="id"
           :loading="store.loading"
+          appearance="card"
           empty-message="No pending access requests."
         >
           <template #cell-twps="{ row }">
@@ -272,6 +273,7 @@ onUnmounted(() => {
           row-key="id"
           :loading="store.loadingUsers && store.users.length === 0"
           :sort-state="sortState"
+          appearance="card"
           searchable
           :search-placeholder="searchPlaceholder"
           :search-debounce="300"
@@ -360,12 +362,6 @@ onUnmounted(() => {
   font-weight: 400;
 }
 
-.users-view :deep(.data-table__wrapper) {
-  background: var(--color-bg-white);
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
 
 .users-table.is-refreshing :deep(.data-table__wrapper) {
   opacity: 0.45;
@@ -377,9 +373,6 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-.stat-cards :deep(.stat-card) {
-  flex: 1;
-}
 
 .twp-chips {
   display: flex;
