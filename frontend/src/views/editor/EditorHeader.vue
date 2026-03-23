@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
 import { Card, Button } from 'upov-ui';
+import SaveStatus from '@/components/common/SaveStatus.vue';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 
@@ -17,42 +18,37 @@ function toggleDetails() {
 
 const mainCommonName = computed(() => store.tg?.TG_Name ?? '');
 const upovCodesStr = computed(() =>
-  store.upovCodes
-    .map((uc) => uc.code.replace(/<\/?p>/g, '').trim())
-    .join('; '),
+  store.upovCodes.map((uc) => uc.code).join('; '),
 );
 const botanicalNames = computed(() =>
-  store.upovCodes
-    .map((uc) => uc.botanicalName.replace(/<\/?p>/g, '').trim())
-    .join(', '),
+  store.upovCodes.map((uc) => uc.botanicalName).join(', '),
 );
 const documentName = computed(() => store.tg?.TG_Reference ?? '');
 const lastUpdated = computed(() => {
   if (!store.tg?.TG_lastupdated) return '';
-  
+
   const date = new Date(store.tg.TG_lastupdated);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSecs = Math.floor(diffMs / 1000);
   const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
 
-  let relative = '';
+  let timeStr: string;
+
   if (diffSecs < 60) {
-    relative = 'Just now';
+    timeStr = 'a few seconds ago';
+  } else if (diffMins === 1) {
+    timeStr = 'a minute ago';
   } else if (diffMins < 60) {
-    relative = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-  } else if (diffHours < 24) {
-    relative = `${diffHours} hr${diffHours > 1 ? 's' : ''} ago`;
-  } else if (diffDays < 30) {
-    relative = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    timeStr = `${diffMins} minutes ago`;
   } else {
-    // Fallback to full date for older entries
-    relative = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    // ≥ 1 hour: show full date and time
+    const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+    timeStr = `${datePart}, ${timePart}`;
   }
 
-  return `Saved: ${relative}`;
+  return `Saved: ${timeStr}`;
 });
 
 // Initialize upov docs content from store
@@ -67,28 +63,28 @@ function onDocumentsChange(content: string) {
 
 <template>
   <Card elevation="low" padding="compact">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--color-neutral-200, #E2E2E2)">
-      <div style="display: flex; align-items: flex-start; gap: 48px; flex: 1; flex-wrap: wrap">
-        <div style="display: flex; flex-direction: column; gap: 4px">
-          <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">Main Common Name(s):</span>
-          <span style="font-size: 22px; font-weight: 700; color: var(--color-primary-green-dark); line-height: 27px">{{ mainCommonName }}</span>
+    <div class="header-top">
+      <div class="header-fields">
+        <div class="header-field">
+          <span class="header-label">Main Common Name(s):</span>
+          <span class="header-value header-value--lg">{{ mainCommonName }}</span>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px">
-          <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">UPOV Code(s):</span>
-          <span style="font-size: 16px; font-weight: 600; color: var(--color-primary-green-dark); line-height: 20px" v-html="upovCodesStr"></span>
+        <div class="header-field">
+          <span class="header-label">UPOV Code(s):</span>
+          <span class="header-value">{{ upovCodesStr }}</span>
         </div>
       </div>
       <Button type="primary" icon-left="check-circle">Submit</Button>
     </div>
 
     <Transition name="slide">
-      <div v-if="showDetails" style="padding: 16px 0; border-bottom: 1px solid var(--color-neutral-200, #E2E2E2); display: flex; flex-direction: column; gap: 20px">
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">Botanical Name(s):</span>
-          <p style="font-weight: 700; font-size: 15px; line-height: 20px; color: var(--color-primary-green-dark)" v-html="botanicalNames"></p>
+      <div v-if="showDetails" class="header-details">
+        <div class="header-field">
+          <span class="header-label">Botanical Name(s):</span>
+          <p class="header-value header-value--bold">{{ botanicalNames }}</p>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 6px">
-          <span style="font-size: 14px; font-weight: 400; color: var(--color-neutral-500); line-height: 18px">Please indicate other associated UPOV documents:</span>
+        <div class="header-field">
+          <span class="header-label">Please indicate other associated UPOV documents:</span>
           <Editor
             v-model="upovDocumentsContent"
             :api-key="apiKey"
@@ -99,24 +95,13 @@ function onDocumentsChange(content: string) {
       </div>
     </Transition>
 
-    <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px">
+    <div class="header-footer">
       <Button type="tertiary" :icon-left="showDetails ? 'chevron-up' : 'chevron-down'" @click="toggleDetails">
         {{ showDetails ? 'Less details' : 'More details' }}
       </Button>
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
-        <span style="font-size: 13px; font-weight: 600; color: var(--color-neutral-500)">{{ documentName }}</span>
-        <span v-if="store.saveStatus === 'saving'" class="save-status save-status--saving">
-          <span class="save-spinner" /> Saving...
-        </span>
-        <span v-else-if="store.saveStatus === 'saved'" class="save-status save-status--saved">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="var(--color-primary-green-bright, #009A6E)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Saved
-        </span>
-        <span v-else-if="store.saveStatus === 'error'" class="save-status save-status--error" @click="store.dismissSaveError()">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 4v3M7 9h.01" stroke="#D32F2F" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Save failed
-        </span>
-        <span v-else style="font-size: 12px; font-weight: 400; color: var(--color-neutral-500)">{{ lastUpdated }}</span>
+      <div class="header-meta">
+        <span class="header-doc-name">{{ documentName }}</span>
+        <SaveStatus :status="store.saveStatus" :idle-message="lastUpdated" />
       </div>
     </div>
   </Card>
@@ -126,15 +111,85 @@ function onDocumentsChange(content: string) {
 .slide-enter-active, .slide-leave-active { transition: max-height 0.3s ease, opacity 0.25s ease; overflow: hidden; max-height: 700px; }
 .slide-enter-from, .slide-leave-to { max-height: 0; opacity: 0; }
 
-/* Save status indicator */
-.save-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; }
-.save-status--saving { color: var(--color-neutral-500); }
-.save-status--saved { color: var(--color-primary-green-bright); }
-.save-status--error { color: #D32F2F; cursor: pointer; }
-.save-status--error:hover { text-decoration: underline; }
-.save-spinner {
-  width: 12px; height: 12px; border: 2px solid var(--color-neutral-300); border-top-color: var(--color-primary-green-dark);
-  border-radius: 50%; animation: spin 0.6s linear infinite;
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-neutral-200, #E2E2E2);
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+.header-fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 48px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.header-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-label {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-neutral-500);
+  line-height: 18px;
+}
+
+.header-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-primary-green-dark);
+  line-height: 20px;
+  margin: 0;
+}
+
+.header-value--lg {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 27px;
+}
+
+.header-value--bold {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.header-details {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-neutral-200, #E2E2E2);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header-details .header-field {
+  gap: 6px;
+}
+
+.header-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.header-doc-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+}
 </style>
