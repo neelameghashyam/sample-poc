@@ -6,6 +6,7 @@ import { exchangeToken, getUserInfo, getMe } from './handlers/auth.js';
 import { getStats } from './handlers/dashboard.js';
 import { list, get, getIeComments } from './handlers/test-guidelines.js';
 import { open as openEdit } from './handlers/chapters/edit.js';
+import { update as updateCh00 } from './handlers/chapters/chapter-00.js';
 import { update as updateCh01 } from './handlers/chapters/chapter-01.js';
 import { update as updateCh02 } from './handlers/chapters/chapter-02.js';
 import { update as updateCh03 } from './handlers/chapters/chapter-03.js';
@@ -67,6 +68,7 @@ app.get('/api/test-guidelines/:id/doc-generate', docGenerate);
 // LE authorization — enforces LE/admin access on all mutation routes below
 app.use('/api/test-guidelines/:id/*', editorAuthMiddleware);
 
+app.patch('/api/test-guidelines/:id/chapters/00', updateCh00);
 app.patch('/api/test-guidelines/:id/chapters/01', updateCh01);
 app.patch('/api/test-guidelines/:id/chapters/02', updateCh02);
 app.patch('/api/test-guidelines/:id/chapters/03', updateCh03);

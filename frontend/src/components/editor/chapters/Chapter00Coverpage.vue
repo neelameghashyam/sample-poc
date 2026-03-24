@@ -4,9 +4,13 @@ import Editor from '@tinymce/tinymce-vue';
 import { Card } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
+import { useChapterPreview } from '@/composables/useChapterPreview';
+import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
 const { apiKey, init: tinymceInit } = useTinymce({ height: 200 });
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
+  useChapterPreview('00');
 
 // ── Field values ────────────────────────────────────────────────────────────
 
@@ -17,7 +21,8 @@ watch(() => store.tg?.TG_Name, (v) => { mainCommonName.value = v ?? ''; });
 function onMainCommonNameChange(e: Event) {
   const val = (e.target as HTMLInputElement).value;
   mainCommonName.value = val;
-  store.autosave('tg', 'TG_Name', val);
+  store.autosave('00', 'TG_Name', val);
+  markDirty();
 }
 
 // UPOV Code(s) — derived from upovCodes (read-only display, codes managed elsewhere)
@@ -30,62 +35,77 @@ const botanicalNames = computed(() =>
     .join(', '),
 );
 
-// Associated UPOV documents — editable rich text, backed by tg.Name_AssoDocInfo
+// Associated UPOV Documents — editable rich text, backed by tg.Name_AssoDocInfo
 const upovDocumentsContent = ref(store.tg?.Name_AssoDocInfo ?? '');
 watch(() => store.tg?.Name_AssoDocInfo, (v) => { upovDocumentsContent.value = v ?? ''; });
 
 function onDocumentsChange(content: string) {
   upovDocumentsContent.value = content;
-  store.autosave('tg', 'Name_AssoDocInfo', content);
+  store.autosave('00', 'Name_AssoDocInfo', content);
+  markDirty();
 }
 </script>
 
 <template>
-  <Card elevation="low">
-    <div class="cover-fields">
+  <ChapterPreview
+    :loading="previewLoading"
+    :needs-refresh="needsRefresh"
+    @refresh="handleRefresh"
+  >
+    <template #edit>
+      <Card elevation="low">
+        <div class="cover-fields">
 
-      <!-- Main Common Name(s) -->
-      <div class="cover-field">
-        <label class="cover-label" for="cover-main-name">Main Common Name(s)</label>
-        <input
-          id="cover-main-name"
-          class="cover-input"
-          type="text"
-          :value="mainCommonName"
-          :disabled="!store.canEdit"
-          placeholder="Enter main common name"
-          @input="onMainCommonNameChange"
-        />
-      </div>
+          <!-- Main Common Name(s) -->
+          <div class="cover-field">
+            <label class="cover-label" for="cover-main-name">Main Common Name(s)</label>
+            <input
+              id="cover-main-name"
+              class="cover-input"
+              type="text"
+              :value="mainCommonName"
+              :disabled="!store.canEdit"
+              placeholder="Enter main common name"
+              @input="onMainCommonNameChange"
+            />
+          </div>
 
-      <!-- UPOV Code(s) — read-only, derived -->
-      <div class="cover-field">
-        <label class="cover-label">UPOV Code(s)</label>
-        <div class="cover-readonly">{{ upovCodesStr || '—' }}</div>
-        <span class="cover-hint">Managed via UPOV codes</span>
-      </div>
+          <!-- UPOV Code(s) — read-only, derived -->
+          <div class="cover-field">
+            <label class="cover-label">UPOV Code(s)</label>
+            <div class="cover-readonly">{{ upovCodesStr || '—' }}</div>
+            <span class="cover-hint">Managed via UPOV codes</span>
+          </div>
 
-      <!-- Botanical Name(s) — read-only, derived -->
-      <div class="cover-field">
-        <label class="cover-label">Botanical Name(s)</label>
-        <div class="cover-readonly" v-html="botanicalNames || '—'" />
-        <span class="cover-hint">Managed via UPOV codes</span>
-      </div>
+          <!-- Botanical Name(s) — read-only, derived -->
+          <div class="cover-field">
+            <label class="cover-label">Botanical Name(s)</label>
+            <div class="cover-readonly" v-html="botanicalNames || '—'" />
+            <span class="cover-hint">Managed via UPOV codes</span>
+          </div>
 
-      <!-- Associated UPOV Documents — rich text editor -->
-      <div class="cover-field">
-        <label class="cover-label">Please indicate other associated UPOV documents</label>
-        <Editor
-          :model-value="upovDocumentsContent"
-          :api-key="apiKey"
-          :init="tinymceInit"
-          :disabled="!store.canEdit"
-          @update:model-value="onDocumentsChange"
-        />
-      </div>
+          <!-- Associated UPOV Documents — rich text editor -->
+          <div class="cover-field">
+            <label class="cover-label">Please indicate other associated UPOV documents</label>
+            <Editor
+              :model-value="upovDocumentsContent"
+              :api-key="apiKey"
+              :init="tinymceInit"
+              :disabled="!store.canEdit"
+              @update:model-value="onDocumentsChange"
+            />
+          </div>
 
+        </div>
+      </Card>
+    </template>
+
+    <!-- Preview slot -->
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">
+      ⚠ {{ previewError }}
     </div>
-  </Card>
+    <div v-else-if="previewHtml" v-html="previewHtml" />
+  </ChapterPreview>
 </template>
 
 <style scoped>

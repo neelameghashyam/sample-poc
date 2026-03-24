@@ -83,7 +83,10 @@ export const useEditorStore = defineStore('editor', () => {
     const key = `${chapter}.${field}`;
 
     // Optimistic update
-    if (chapters.value[chapter]) {
+    // Chapter 00 fields (TG_Name, Name_AssoDocInfo) live on the tg header, not a chapters sub-object
+    if (chapter === '00') {
+      if (tg.value) (tg.value as any)[field] = value;
+    } else if (chapters.value[chapter]) {
       chapters.value[chapter][field] = value;
     }
     dirty.value.add(key);
