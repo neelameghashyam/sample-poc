@@ -16,9 +16,9 @@ export const docPreview = async (c) => {
       return c.json({ error: { code: 'BAD_REQUEST', message: 'Valid test guideline ID required' } }, 400);
     }
 
-    // Strip leading zero so Java receives "1" not "01"
+    // Strip leading zero so Java receives "1" not "01" (cover page "00" → 0)
     const chNum = parseInt(ch, 10);
-    if (isNaN(chNum) || chNum < 1 || chNum > 11) {
+    if (isNaN(chNum) || chNum < 0 || chNum > 11) {
       return c.json({ error: { code: 'BAD_REQUEST', message: 'Invalid chapter number' } }, 400);
     }
 
