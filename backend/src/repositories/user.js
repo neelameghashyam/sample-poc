@@ -117,31 +117,124 @@ export const rejectUser = async (userId) => {
 };
 
 /**
- * Find all active users with office info
+ * Count active users grouped by role
  */
-export const findAllUsers = async () => {
-  return query(
-    `SELECT
-      up.User_ID as id,
-      up.User_Name as userName,
-      up.Full_Name as fullName,
-      up.PrimaryEmail as email,
-      up.Role_Code as roleCode,
-      up.Status_Code as statusCode,
-      up.Request_Status as requestStatus,
-      up.Office_Code as officeCode,
-      o.Office_Name as officeName,
-      up.TWPS as twps,
-      up.User_lastupdated as lastUpdated,
-      GROUP_CONCAT(DISTINCT tg.TG_Name ORDER BY tg.TG_Name SEPARATOR '||') as leTgNames
+export const countByRole = async () => {
+  const rows = await query(
+    `SELECT Role_Code as role, COUNT(*) as count
+     FROM User_Profile
+     WHERE Status_Code = 'A'
+     GROUP BY Role_Code`
+  );
+  const counts = {};
+  for (const r of rows) counts[r.role] = r.count;
+  return counts;
+};
+
+/**
+ * Valid sort columns — whitelist to prevent SQL injection.
+ */
+const SORT_COLUMNS = {
+  userName: 'up.User_Name',
+  fullName: 'up.Full_Name',
+  email: 'up.PrimaryEmail',
+  officeName: 'o.Office_Name',
+  lastUpdated: 'up.User_lastupdated',
+};
+
+/**
+ * Find active users filtered by role, with server-side search, sort, and pagination.
+ * ADM/TRN: lightweight query (no LE assignment joins).
+ * EXP: includes LE TG names via GROUP_CONCAT.
+ *
+ * @param {Object} opts
+ * @param {string} [opts.role] - Filter by role code
+ * @param {string} [opts.search] - Search across userName, fullName, email, officeName
+ * @param {string} [opts.sort] - Sort column key (default: fullName)
+ * @param {string} [opts.order] - Sort direction: 'asc' | 'desc' (default: asc)
+ * @param {number} [opts.page] - Page number (default: 1)
+ * @param {number} [opts.limit] - Items per page (default: 20)
+ */
+export const findAllUsers = async ({ role, search, sort, order, page = 1, limit = 20 } = {}) => {
+  let where = `up.Status_Code = 'A'`;
+  const params = [];
+
+  if (role) {
+    where += ` AND up.Role_Code = ?`;
+    params.push(role);
+  }
+
+  if (search) {
+    where += ` AND (up.User_Name LIKE ? OR up.Full_Name LIKE ? OR up.PrimaryEmail LIKE ? OR o.Office_Name LIKE ?)`;
+    const term = `%${search}%`;
+    params.push(term, term, term, term);
+  }
+
+  // Sort — use whitelist, fall back to fullName; leTgNames is a GROUP_CONCAT alias (EXP only)
+  const sortDir = order === 'desc' ? 'DESC' : 'ASC';
+  let orderBy;
+  if (sort === 'leTgNames' && role === 'EXP') {
+    orderBy = `leTgNames ${sortDir}`;
+  } else {
+    orderBy = `${SORT_COLUMNS[sort] || 'up.Full_Name'} ${sortDir}`;
+  }
+
+  const offset = (page - 1) * limit;
+  const needsLeJoin = role === 'EXP';
+
+  let dataSql;
+  if (needsLeJoin) {
+    dataSql = `
+      SELECT
+        up.User_ID as id,
+        up.User_Name as userName,
+        up.Full_Name as fullName,
+        up.PrimaryEmail as email,
+        up.Role_Code as roleCode,
+        up.Office_Code as officeCode,
+        o.Office_Name as officeName,
+        up.User_lastupdated as lastUpdated,
+        GROUP_CONCAT(DISTINCT tg.TG_Name ORDER BY tg.TG_Name SEPARATOR '||') as leTgNames
+      FROM User_Profile up
+      LEFT JOIN Office o ON up.Office_Code = o.Office_Code
+      LEFT JOIN Tg_Users tu ON up.User_ID = tu.User_ID AND tu.Role_Code = 'LE'
+      LEFT JOIN TG tg ON tu.TG_ID = tg.TG_ID AND tg.Status_Code <> 'DEL'
+      WHERE ${where}
+      GROUP BY up.User_ID
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?`;
+  } else {
+    dataSql = `
+      SELECT
+        up.User_ID as id,
+        up.User_Name as userName,
+        up.Full_Name as fullName,
+        up.PrimaryEmail as email,
+        up.Role_Code as roleCode,
+        up.Office_Code as officeCode,
+        o.Office_Name as officeName,
+        up.User_lastupdated as lastUpdated
+      FROM User_Profile up
+      LEFT JOIN Office o ON up.Office_Code = o.Office_Code
+      WHERE ${where}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?`;
+  }
+
+  // Count query — only needs User_Profile + Office (for officeName search), no LE joins
+  const countSql = `
+    SELECT COUNT(*) as total
     FROM User_Profile up
     LEFT JOIN Office o ON up.Office_Code = o.Office_Code
-    LEFT JOIN Tg_Users tu ON up.User_ID = tu.User_ID AND tu.Role_Code = 'LE'
-    LEFT JOIN TG tg ON tu.TG_ID = tg.TG_ID AND tg.Status_Code <> 'DEL'
-    WHERE up.Status_Code = 'A'
-    GROUP BY up.User_ID
-    ORDER BY up.Full_Name`
-  );
+    WHERE ${where}`;
+
+  // Run data + count in parallel
+  const [items, countRow] = await Promise.all([
+    query(dataSql, [...params, limit, offset]),
+    queryOne(countSql, params),
+  ]);
+
+  return { items, total: countRow?.total || 0 };
 };
 
 /**
@@ -202,32 +295,75 @@ export const countUserTgAssignments = async (userId) => {
 };
 
 /**
- * Auto-assign user as IE to all TGs matching their TWPs.
- * Join path: TG → TG_UPOVCode → Upov_Code → upovcode_twp.TWP
- * Skips TGs the user is already assigned to.
+ * Find TWPs where user is assigned as LE on at least one TG.
+ * Returns distinct TWP codes, e.g. ['TWV', 'TWO'].
  */
-export const assignUserToMatchingTgs = async (userId, twpsCsv) => {
-  if (!twpsCsv) return 0;
-  const twps = twpsCsv.split(',').map((t) => t.trim()).filter(Boolean);
-  if (twps.length === 0) return 0;
-
-  const placeholders = twps.map(() => '?').join(',');
-  const result = await query(
-    `INSERT INTO Tg_Users (TG_ID, User_ID, Role_Code, Status_Code, Language_Code)
-     SELECT DISTINCT t.TG_ID, ?, 'IE', 'A', 'EN'
-     FROM TG t
-     JOIN TG_UPOVCode tuc ON t.TG_ID = tuc.TG_ID
-     JOIN Upov_Code uc ON tuc.UpovCode_ID = uc.UpovCode_ID
-     JOIN upovcode_twp ut ON ut.UPOV_CODE = REPLACE(REPLACE(REPLACE(uc.Upov_Code, '<p>', ''), '</p>', ''), '\r\n', '')
-     WHERE ut.TWP IN (${placeholders})
-       AND t.Status_Code <> 'DEL'
-       AND NOT EXISTS (
-         SELECT 1 FROM Tg_Users tu
-         WHERE tu.TG_ID = t.TG_ID AND tu.User_ID = ?
-       )`,
-    [userId, ...twps, userId]
+export const findLeTwps = async (userId) => {
+  const rows = await query(
+    `SELECT DISTINCT t.CPI_TechWorkParty as TWP
+     FROM Tg_Users tu
+     JOIN TG t ON tu.TG_ID = t.TG_ID
+     WHERE tu.User_ID = ? AND tu.Role_Code = 'LE' AND t.Status_Code <> 'DEL'
+       AND t.CPI_TechWorkParty IS NOT NULL`,
+    [userId]
   );
-  return result.affectedRows;
+  return rows.map((r) => r.TWP);
+};
+
+/**
+ * Sync IE assignments for a user based on their TWPs.
+ * - Assigns IE to TGs matching new TWPs (skips existing)
+ * - Unassigns IE from TGs no longer matching any TWP
+ */
+export const syncIeAssignments = async (userId, twpsCsv) => {
+  const twps = twpsCsv ? twpsCsv.split(',').map((t) => t.trim()).filter(Boolean) : [];
+
+  // Remove IE assignments for TGs that no longer match any of the user's TWPs
+  // (but never remove LE assignments)
+  let removed = 0;
+  if (twps.length === 0) {
+    // No TWPs — remove all IE assignments
+    const res = await query(
+      `DELETE FROM Tg_Users WHERE User_ID = ? AND Role_Code = 'IE'`,
+      [userId]
+    );
+    removed = res.affectedRows;
+  } else {
+    const placeholders = twps.map(() => '?').join(',');
+    const res = await query(
+      `DELETE FROM Tg_Users
+       WHERE User_ID = ? AND Role_Code = 'IE'
+         AND TG_ID NOT IN (
+           SELECT t.TG_ID
+           FROM TG t
+           WHERE t.CPI_TechWorkParty IN (${placeholders})
+             AND t.Status_Code <> 'DEL'
+         )`,
+      [userId, ...twps]
+    );
+    removed = res.affectedRows;
+  }
+
+  // Add IE assignments for matching TGs the user is not yet assigned to
+  let assigned = 0;
+  if (twps.length > 0) {
+    const placeholders = twps.map(() => '?').join(',');
+    const res = await query(
+      `INSERT INTO Tg_Users (TG_ID, User_ID, Role_Code, Status_Code, Language_Code)
+       SELECT t.TG_ID, ?, 'IE', 'A', 'EN'
+       FROM TG t
+       WHERE t.CPI_TechWorkParty IN (${placeholders})
+         AND t.Status_Code <> 'DEL'
+         AND NOT EXISTS (
+           SELECT 1 FROM Tg_Users tu
+           WHERE tu.TG_ID = t.TG_ID AND tu.User_ID = ?
+         )`,
+      [userId, ...twps, userId]
+    );
+    assigned = res.affectedRows;
+  }
+
+  return { assigned, removed };
 };
 
 /**
@@ -245,6 +381,13 @@ export const updateTwps = async (userId, twps) => {
 /**
  * Get all offices for autocomplete
  */
+export const countPendingRequests = async () => {
+  const result = await queryOne(
+    `SELECT COUNT(*) as total FROM User_Profile WHERE Request_Status = 'Pending'`
+  );
+  return parseInt(result?.total || 0, 10);
+};
+
 export const findAllOffices = async () => {
   const rows = await query(
     `SELECT Office_Code as code, Office_Name as name

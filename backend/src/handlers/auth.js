@@ -72,7 +72,6 @@ export const getUserInfo = async (c) => {
 /**
  * Get current user info (combines OAuth identity + database roles)
  *
- * In DEV_BYPASS_AUTH mode, returns mock user from database lookup.
  * EntraID users always receive ADMIN role regardless of database value.
  */
 export const getMe = async (c) => {
@@ -84,52 +83,15 @@ export const getMe = async (c) => {
 
     const accessToken = authHeader.substring(7);
 
-    // Dev bypass mode - use mock user
-    if (process.env.DEV_BYPASS_AUTH === 'true') {
-      const mockUsername = process.env.DEV_MOCK_USER || 'devuser';
-      console.log(`[DEV MODE] Getting user info for: ${mockUsername}`);
-
-      const dbUser = await findByUsername(mockUsername);
-
-      if (dbUser) {
-        const needsAccessRequest = dbUser.statusCode === 'I' && (dbUser.requestStatus === 'Rejected' || !dbUser.twps);
-        const isPending = dbUser.statusCode === 'I' && dbUser.requestStatus === 'Pending';
-        return c.json({
-          id: dbUser.id,
-          username: dbUser.userName,
-          name: dbUser.fullName,
-          email: dbUser.email,
-          roles: dbUser.roleCode ? [dbUser.roleCode] : [],
-          statusCode: dbUser.statusCode,
-          requestStatus: dbUser.requestStatus,
-          officeCode: dbUser.officeCode,
-          twps: dbUser.twps,
-          needsAccessRequest,
-          isPending,
-          isDevMode: true,
-        });
-      }
-
-      // Return mock data if user not in database
-      return c.json({
-        id: null,
-        username: mockUsername,
-        name: 'Dev User',
-        email: `${mockUsername}@wipo.int`,
-        roles: ['ADM'], // Give admin role in dev mode
-        isDevMode: true,
-        isNewUser: true,
-        needsAccessRequest: true,
-        isPending: false,
-      });
-    }
-
-    // Production mode - determine provider from header
+    // Determine provider from header
     const providerName = c.req.header('X-Auth-Provider') || 'forgerock';
     const provider = getProvider(providerName);
 
-    // Validate token and extract identity
-    const tokenData = await provider.verifyToken(accessToken);
+    // getMe needs full profile (email, name, country) for user sync,
+    // so use fetchUserInfo when available (ForgeRock) instead of JWT-only verifyToken
+    const tokenData = provider.fetchUserInfo
+      ? await provider.fetchUserInfo(accessToken)
+      : await provider.verifyToken(accessToken);
     const identity = provider.getUserIdentity(tokenData);
 
     console.log(`getMe: ${identity.username} via ${providerName}`);

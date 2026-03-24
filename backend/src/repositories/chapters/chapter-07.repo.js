@@ -95,10 +95,18 @@ export const reorderCharacteristics = async (tgId, order) => {
  * Create an expression note
  */
 export const createExpression = async (charId, data) => {
+  // Get next row index for this characteristic
+  const maxRow = await queryOne(
+    `SELECT COALESCE(MAX(Expression_Notes_Row_Index), 0) + 1 as nextIndex
+     FROM TOC_Expression_Notes WHERE TOC_ID = ?`,
+    [charId]
+  );
+  const rowIndex = data.Expression_Notes_Row_Index ?? maxRow?.nextIndex ?? 1;
+
   const fields = Object.keys(data).filter((f) => EXPR_ALLOWED_FIELDS.includes(f));
-  const columns = ['TOC_ID', ...fields];
+  const columns = ['TOC_ID', 'Expression_Notes_Row_Index', ...fields];
   const placeholders = columns.map(() => '?').join(', ');
-  const values = [charId, ...fields.map((f) => data[f])];
+  const values = [charId, rowIndex, ...fields.map((f) => data[f])];
 
   const result = await query(
     `INSERT INTO TOC_Expression_Notes (${columns.join(', ')}) VALUES (${placeholders})`,
@@ -148,16 +156,16 @@ export const deleteExpression = async (exprId) => {
 export const searchAdopted = async (searchQuery, limit = 20) => {
   return query(
     `SELECT
-      AdoptedTG_ID as id,
-      CharacteristicName as name,
-      Genus as genus,
-      Methods as methods,
+      AdoptedTgId as id,
+      CharNameENG as name,
+      TgNameENG as genus,
+      ObservationMethods as methods,
       ExpressionType as type,
-      TG_Reference as tgRef,
-      StatesOfExpression as statesOfExpression
+      TgRef as tgRef,
+      StateOfExpressionNotesENG as statesOfExpression
     FROM AdoptedTg
-    WHERE CharacteristicName LIKE ?
-    ORDER BY CharacteristicName
+    WHERE CharNameENG LIKE ?
+    ORDER BY CharNameENG
     LIMIT ?`,
     [`%${searchQuery}%`, limit]
   );

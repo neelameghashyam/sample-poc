@@ -1,4 +1,30 @@
 import axios from 'axios';
+import * as jose from 'jose';
+
+/**
+ * JWKS client — fetches and caches ForgeRock's public signing keys.
+ * Lazily initialized on first use so env vars are available.
+ */
+let jwks = null;
+
+function getJwks() {
+  if (!jwks) {
+    // Derive JWKS URI from token endpoint: .../access_token → .../connect/jwk_uri
+    const tokenUri = process.env.OIDC_TOKEN_URI;
+    if (!tokenUri) throw new Error('OIDC_TOKEN_URI not configured');
+    const issuer = tokenUri.replace(/\/access_token$/, '');
+    const jwksUri = `${issuer}/connect/jwk_uri`;
+    jwks = jose.createRemoteJWKSet(new URL(jwksUri));
+  }
+  return jwks;
+}
+
+/**
+ * Check if a string is a JWT (three base64url-encoded segments separated by dots)
+ */
+function isJwt(token) {
+  return typeof token === 'string' && token.split('.').length === 3;
+}
 
 const forgerock = {
   name: 'forgerock',
@@ -35,7 +61,39 @@ const forgerock = {
     };
   },
 
+  /**
+   * Verify access token locally using JWKS (JWT) or via userinfo (opaque).
+   *
+   * JWT verification checks signature, expiry, and issuer — no network
+   * round-trip to ForgeRock on subsequent requests.
+   * Falls back to userinfo endpoint if the token is opaque.
+   */
   async verifyToken(token) {
+    if (isJwt(token)) {
+      try {
+        const issuer = process.env.OIDC_TOKEN_URI.replace(/\/access_token$/, '');
+        const { payload } = await jose.jwtVerify(token, getJwks(), {
+          issuer,
+        });
+        return { sub: payload.sub, _fromJwt: true };
+      } catch (error) {
+        if (error.code === 'ERR_JWT_EXPIRED') {
+          throw new Error('Token expired or invalid');
+        }
+        // JWT verification failed — fall back to userinfo
+        console.warn(`JWT verification failed, falling back to userinfo: ${error.message}`);
+      }
+    }
+
+    // Opaque token or JWT fallback — validate via userinfo endpoint
+    return this.fetchUserInfo(token);
+  },
+
+  /**
+   * Fetch full user profile from ForgeRock userinfo endpoint.
+   * Used by getMe handler for profile sync (email, name, country).
+   */
+  async fetchUserInfo(token) {
     const userInfoUrl = process.env.OIDC_USERINFO_URI;
     if (!userInfoUrl) {
       throw new Error('OIDC_USERINFO_URI not configured');
@@ -56,6 +114,11 @@ const forgerock = {
   },
 
   getUserIdentity(userInfo) {
+    // JWT payload only has sub; userinfo has full profile
+    if (userInfo._fromJwt) {
+      return { username: userInfo.sub, email: null, name: null, country: null };
+    }
+
     // ForgeRock's 'name' field is the username; build full name from given_name + family_name
     const name = userInfo.given_name && userInfo.family_name
       ? `${userInfo.family_name} ${userInfo.given_name}`

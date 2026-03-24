@@ -1,5 +1,6 @@
 import { queryOne } from '../../utils/db.js';
 import { findByUsername } from '../../repositories/user.js';
+import { stripHtml, stripHtmlFromFields } from '../../utils/html.js';
 import {
   findTgHeader,
   findUpovCodes,
@@ -163,6 +164,51 @@ export const open = async (c) => {
       };
     }
 
+    // Strip HTML from characteristic names (Chapter 07)
+    const cleanedCharacteristics = characteristics.map(char => ({
+      ...char,
+      TOC_Name: stripHtml(char.TOC_Name),
+      expressions: char.expressions?.map(expr => ({
+        ...expr,
+        State_of_Expression: stripHtml(expr.State_of_Expression),
+      })) || [],
+    }));
+
+    // Strip HTML from explanations (Chapter 08)
+    const cleanedExplanations = explanations.map(expl => ({
+      ...expl,
+      Explaination_Text: stripHtml(expl.Explaination_Text),
+    }));
+
+    // Strip HTML from Chapter 10 fields
+    let cleanedCh10 = ch10;
+    if (ch10) {
+      cleanedCh10 = {
+        ...ch10,
+        BreedingSchemeInfo: stripHtml(ch10.BreedingSchemeInfo),
+        ProdSchemeInfo: stripHtml(ch10.ProdSchemeInfo),
+        VirusPresenceInfo: stripHtml(ch10.VirusPresenceInfo),
+        ExaminationAddInfo: stripHtml(ch10.ExaminationAddInfo),
+        subjects: ch10.subjects?.map(subj => ({
+          ...subj,
+          TqBotanicalName: stripHtml(subj.TqBotanicalName),
+          TqCommonName: stripHtml(subj.TqCommonName),
+        })) || [],
+        breedingSchemes: ch10.breedingSchemes?.map(bs => ({
+          ...bs,
+          TqBreedingSChemeOtherDetails: stripHtml(bs.TqBreedingSChemeOtherDetails),
+        })) || [],
+        propagationMethods: ch10.propagationMethods?.map(pm => ({
+          ...pm,
+          TqPMethodOtherDetails: stripHtml(pm.TqPMethodOtherDetails),
+        })) || [],
+        characteristics: ch10.characteristics?.map(char => ({
+          ...char,
+          Name: stripHtml(char.Name),
+        })) || [],
+      };
+    }
+
     // Build chapters object
     const chapters = {
       '01': ch01 || null,
@@ -178,13 +224,13 @@ export const open = async (c) => {
         additionalCharacteristics: ch06 || null,
       },
       '07': {
-        characteristics,
+        characteristics: cleanedCharacteristics,
       },
       '08': {
-        explanations,
+        explanations: cleanedExplanations,
       },
       '09': ch09 || null,
-      '10': ch10,
+      '10': cleanedCh10,
       '11': ch11 || null,
     };
 

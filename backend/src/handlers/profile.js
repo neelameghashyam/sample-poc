@@ -1,5 +1,5 @@
-import { findByUsername, updateTwps, assignUserToMatchingTgs } from '../repositories/user.js';
-import { getProvider } from '../utils/oauth-providers.js';
+import { findByUsername, updateTwps, syncIeAssignments, findLeTwps } from '../repositories/user.js';
+import { resolveUsername } from '../utils/resolve-user.js';
 
 const VALID_TWPS = ['TWA', 'TWF', 'TWO', 'TWV'];
 
@@ -21,29 +21,33 @@ export const updateMyTwps = async (c) => {
     }
 
     // Resolve current user
-    let username;
-    if (process.env.DEV_BYPASS_AUTH === 'true') {
-      username = process.env.DEV_MOCK_USER || 'devuser';
-    } else {
-      const authUser = c.get('user');
-      const providerName = c.get('authProvider') || 'forgerock';
-      const provider = getProvider(providerName);
-      username = provider.getUserIdentity(authUser).username;
-    }
+    const username = resolveUsername(c);
 
     const dbUser = await findByUsername(username);
     if (!dbUser) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'User not found' } }, 404);
     }
 
+    // Check if user is removing a TWP where they are LE
+    const leTwps = await findLeTwps(dbUser.id);
+    const removedLeTwps = leTwps.filter((t) => !twpList.includes(t));
+    if (removedLeTwps.length > 0) {
+      return c.json({
+        error: {
+          code: 'LE_CONFLICT',
+          message: `Cannot remove ${removedLeTwps.join(', ')} — you are assigned as Leading Expert in TGs under ${removedLeTwps.length === 1 ? 'this TWP' : 'these TWPs'}`,
+        },
+      }, 400);
+    }
+
     const normalizedTwps = twpList.join(',');
     await updateTwps(dbUser.id, normalizedTwps);
 
-    // Auto-assign as IE to TGs matching new TWPs
-    const assigned = await assignUserToMatchingTgs(dbUser.id, normalizedTwps);
-    console.log(`Profile TWP update: user ${dbUser.id} → ${normalizedTwps}, assigned to ${assigned} new TG(s)`);
+    // Sync IE assignments: add matching, remove non-matching
+    const { assigned, removed } = await syncIeAssignments(dbUser.id, normalizedTwps);
+    console.log(`Profile TWP update: user ${dbUser.id} → ${normalizedTwps}, assigned ${assigned}, removed ${removed}`);
 
-    return c.json({ message: 'TWPs updated', twps: normalizedTwps, assigned });
+    return c.json({ message: 'TWPs updated', twps: normalizedTwps, assigned, removed });
   } catch (err) {
     console.error('Update TWPs error:', err);
     return c.json({ error: { code: 'ERROR', message: 'Failed to update TWPs' } }, 500);

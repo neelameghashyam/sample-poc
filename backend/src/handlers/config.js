@@ -7,7 +7,6 @@ export function getConfig(c) {
 
   return c.json({
     auth: {
-      devBypass: process.env.DEV_BYPASS_AUTH === 'true',
       oidc: {
         authorizationUri: process.env.OIDC_AUTHORIZATION_URI || '',
         clientId: process.env.OIDC_CLIENT_ID || '',
@@ -23,6 +22,9 @@ export function getConfig(c) {
     },
     tinymce: {
       apiKey: process.env.TINY_API_KEY || '',
+    },
+    services: {
+      docGenerateUrl: process.env.DOC_GENERATE_URL || 'http://localhost:8083',
     },
   });
 }

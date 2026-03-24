@@ -4,17 +4,38 @@ import {
   updateUserRole,
   deleteUser,
   countUserTgAssignments,
+  countByRole,
 } from '../repositories/user.js';
 
 const VALID_ROLES = ['ADM', 'EXP', 'TRN'];
 
 /**
- * List all active users
+ * Get user counts by role
+ */
+export const userCounts = async (c) => {
+  try {
+    const counts = await countByRole();
+    return c.json({ counts });
+  } catch (err) {
+    console.error('User counts error:', err);
+    return c.json({ error: { code: 'ERROR', message: 'Failed to get user counts' } }, 500);
+  }
+};
+
+/**
+ * List active users with server-side search, sort, and pagination.
+ * Query params: role, search, sort, order, page, limit
  */
 export const listUsers = async (c) => {
   try {
-    const users = await findAllUsers();
-    return c.json({ items: users });
+    const role = c.req.query('role') || undefined;
+    const search = c.req.query('search') || undefined;
+    const sort = c.req.query('sort') || undefined;
+    const order = c.req.query('order') || undefined;
+    const page = parseInt(c.req.query('page') || '1', 10);
+    const limit = parseInt(c.req.query('limit') || '20', 10);
+    const { items, total } = await findAllUsers({ role, search, sort, order, page, limit });
+    return c.json({ items, meta: { page, limit, total } });
   } catch (err) {
     console.error('List users error:', err);
     return c.json({ error: { code: 'ERROR', message: 'Failed to list users' } }, 500);

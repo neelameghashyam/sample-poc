@@ -1,17 +1,21 @@
 import { getProvider } from '../utils/oauth-providers.js';
 
 /**
- * Verify access token using the appropriate provider
- * ForgeRock: opaque token validated via userinfo endpoint
- * EntraID: JWT validated via Microsoft Graph
+ * Verify access token using the appropriate provider.
  *
- * Results are cached in-memory (5 min TTL) to avoid external round-trips
- * on every request. Cache is keyed by token hash.
+ * ForgeRock: local JWT verification (signature + exp + iss via JWKS).
+ *   Falls back to userinfo endpoint for opaque tokens.
+ * EntraID: validated via Microsoft Graph /me endpoint.
+ *
+ * Results are cached for providers that require network calls (EntraID,
+ * ForgeRock opaque fallback). Local JWT verification is fast and doesn't
+ * need caching — jose handles JWKS key caching internally.
  */
 const tokenCache = new Map();          // key → { user, expires }
 const CACHE_TTL = 5 * 60 * 1000;      // 5 minutes
 
 export const verifyToken = async (token, providerName = 'forgerock') => {
+  // Check cache first (used by EntraID and ForgeRock opaque fallback)
   const cacheKey = `${providerName}:${token.slice(-16)}`;
   const cached = tokenCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) {
@@ -21,9 +25,13 @@ export const verifyToken = async (token, providerName = 'forgerock') => {
   const provider = getProvider(providerName);
   const user = await provider.verifyToken(token);
 
+  // ForgeRock JWT tokens are verified locally — no caching needed.
+  // jose handles JWKS key caching internally.
+  if (user._fromJwt) return user;
+
+  // Network-validated tokens (EntraID, ForgeRock opaque fallback) get cached
   tokenCache.set(cacheKey, { user, expires: Date.now() + CACHE_TTL });
 
-  // Evict stale entries periodically (keep map from growing unbounded)
   if (tokenCache.size > 100) {
     const now = Date.now();
     for (const [k, v] of tokenCache) {
@@ -40,18 +48,6 @@ export const verifyToken = async (token, providerName = 'forgerock') => {
  * Reads X-Auth-Provider header to determine validation strategy
  */
 export const authMiddleware = async (c, next) => {
-  // Dev bypass mode - skip OAuth validation
-  if (process.env.DEV_BYPASS_AUTH === 'true') {
-    c.set('user', {
-      sub: process.env.DEV_MOCK_USER || 'devuser',
-      email: `${process.env.DEV_MOCK_USER || 'devuser'}@wipo.int`,
-      name: 'Dev User',
-    });
-    c.set('authProvider', 'forgerock');
-    console.log(`[DEV MODE] Bypassing auth for user: ${c.get('user').sub}`);
-    return next();
-  }
-
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
   if (!token) {
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, 401);

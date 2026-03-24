@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { health } from './handlers/health.js';
 import { exchangeToken, getUserInfo, getMe } from './handlers/auth.js';
 import { getStats } from './handlers/dashboard.js';
-import { list, get } from './handlers/test-guidelines.js';
+import { list, get, getIeComments } from './handlers/test-guidelines.js';
 import { open as openEdit } from './handlers/chapters/edit.js';
 import { update as updateCh01 } from './handlers/chapters/chapter-01.js';
 import { update as updateCh02 } from './handlers/chapters/chapter-02.js';
@@ -21,7 +21,9 @@ import { update as updateCh10, createSubjectHandler, updateSubjectHandler, remov
 import { docPreview } from './handlers/chapters/doc-preview.js';
 import { docGenerate } from './handlers/doc-generate.js';
 import { submit, listPending, approve, reject, offices } from './handlers/access-request.js';
-import { listUsers, getUser, updateRole, deleteUserHandler } from './handlers/admin-users.js';
+import { listUsers, userCounts, getUser, updateRole, deleteUserHandler } from './handlers/admin-users.js';
+import { list as listTB, options as tbOptions, get as getTB, patch as patchTB, post as postTB, del as delTB, previousMeetingEnd as tbPrevMeetingEnd } from './handlers/technical-body.js';
+import { list as listAsw, options as aswOptions, get as getAsw, patch as patchAsw, post as postAsw, del as delAsw } from './handlers/asw-data.js';
 import { updateMyTwps } from './handlers/profile.js';
 import { getConfig } from './handlers/config.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -53,6 +55,7 @@ app.get('/api/auth/me', getMe);
 app.get('/api/dashboard/stats', getStats);
 app.get('/api/test-guidelines', list);
 app.get('/api/test-guidelines/:id', get);
+app.get('/api/test-guidelines/:id/ie-comments', getIeComments);
 app.get('/api/test-guidelines/:id/open', openEdit);
 
 // Chapter document preview — proxies to Java doc-generate service (read-only)
@@ -121,10 +124,28 @@ app.post('/api/admin/access-requests/:id/approve', approve);
 app.post('/api/admin/access-requests/:id/reject', reject);
 
 // Admin user management
+app.get('/api/admin/users/counts', userCounts);
 app.get('/api/admin/users', listUsers);
 app.get('/api/admin/users/:id', getUser);
 app.put('/api/admin/users/:id/role', updateRole);
 app.delete('/api/admin/users/:id', deleteUserHandler);
+
+// Admin: Technical Bodies
+app.get('/api/admin/technical-bodies', listTB);
+app.get('/api/admin/technical-bodies/options', tbOptions);
+app.get('/api/admin/technical-bodies/previous-meeting-end', tbPrevMeetingEnd);
+app.get('/api/admin/technical-bodies/:id', getTB);
+app.patch('/api/admin/technical-bodies/:id', patchTB);
+app.delete('/api/admin/technical-bodies/:id', delTB);
+app.post('/api/admin/technical-bodies', postTB);
+
+// Admin: ASW Data
+app.get('/api/admin/asw-data', listAsw);
+app.get('/api/admin/asw-data/options', aswOptions);
+app.get('/api/admin/asw-data/:id', getAsw);
+app.patch('/api/admin/asw-data/:id', patchAsw);
+app.delete('/api/admin/asw-data/:id', delAsw);
+app.post('/api/admin/asw-data', postAsw);
 
 // Centralized error handling
 app.onError((err, c) => {

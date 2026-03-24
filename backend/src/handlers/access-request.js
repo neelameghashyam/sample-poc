@@ -7,7 +7,7 @@ import {
   approveUser,
   rejectUser,
   findAllOffices,
-  assignUserToMatchingTgs,
+  syncIeAssignments,
 } from '../repositories/user.js';
 import { getProvider } from '../utils/oauth-providers.js';
 
@@ -73,7 +73,7 @@ export const approve = async (c) => {
     // Auto-assign EXP users as IE to TGs matching their TWPs
     const user = await findUserById(id);
     if (user && user.roleCode === 'EXP' && user.twps) {
-      const assigned = await assignUserToMatchingTgs(id, user.twps);
+      const { assigned } = await syncIeAssignments(id, user.twps);
       console.log(`Auto-assigned user ${id} as IE to ${assigned} TG(s)`);
     }
 
