@@ -8,11 +8,14 @@ import { useChapterPreview } from '@/composables/useChapterPreview';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
-const { apiKey, init: tinymceInit } = useTinymce({ height: 200 });
+const { apiKey, init } = useTinymce({ height: 200 });
 const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
   useChapterPreview('00');
 
-// ── Field values ────────────────────────────────────────────────────────────
+// Use store.tg as the "data" guard — mirrors how other chapters use store.chapters['XX']
+const data = computed(() => store.tg);
+
+// ── Field values ─────────────────────────────────────────────────────────────
 
 // Main Common Name — editable, backed by tg.TG_Name
 const mainCommonName = ref(store.tg?.TG_Name ?? '');
@@ -25,17 +28,19 @@ function onMainCommonNameChange(e: Event) {
   markDirty();
 }
 
-// UPOV Code(s) — derived from upovCodes (read-only display, codes managed elsewhere)
+// UPOV Code(s) — read-only, derived from upovCodes
 const upovCodesStr = computed(() => store.upovCodes.map((uc) => uc.code).join('; '));
 
-// Botanical Name(s) — derived from upovCodes (read-only, managed via UPOV codes)
+// Botanical Name(s) — read-only, derived from upovCodes
+// botanicalName from the DB may contain HTML tags (<i>, <p>) — strip <p> only,
+// keep <i>/<b> so v-html renders them correctly
 const botanicalNames = computed(() =>
   store.upovCodes
     .map((uc) => uc.botanicalName.replace(/<\/?p>/g, '').trim())
     .join(', '),
 );
 
-// Associated UPOV Documents — editable rich text, backed by tg.Name_AssoDocInfo
+// Associated UPOV Documents — rich text, backed by tg.Name_AssoDocInfo
 const upovDocumentsContent = ref(store.tg?.Name_AssoDocInfo ?? '');
 watch(() => store.tg?.Name_AssoDocInfo, (v) => { upovDocumentsContent.value = v ?? ''; });
 
@@ -48,6 +53,7 @@ function onDocumentsChange(content: string) {
 
 <template>
   <ChapterPreview
+    v-if="data"
     :loading="previewLoading"
     :needs-refresh="needsRefresh"
     @refresh="handleRefresh"
@@ -77,7 +83,7 @@ function onDocumentsChange(content: string) {
             <span class="cover-hint">Managed via UPOV codes</span>
           </div>
 
-          <!-- Botanical Name(s) — read-only, derived -->
+          <!-- Botanical Name(s) — read-only; v-html renders <i> tags from DB correctly -->
           <div class="cover-field">
             <label class="cover-label">Botanical Name(s)</label>
             <div class="cover-readonly" v-html="botanicalNames || '—'" />
@@ -90,7 +96,7 @@ function onDocumentsChange(content: string) {
             <Editor
               :model-value="upovDocumentsContent"
               :api-key="apiKey"
-              :init="tinymceInit"
+              :init="init"
               :disabled="!store.canEdit"
               @update:model-value="onDocumentsChange"
             />
@@ -100,10 +106,7 @@ function onDocumentsChange(content: string) {
       </Card>
     </template>
 
-    <!-- Preview slot -->
-    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">
-      ⚠ {{ previewError }}
-    </div>
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>
 </template>
