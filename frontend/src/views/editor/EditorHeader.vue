@@ -7,51 +7,35 @@ import { useEditorStore } from '@/stores/editor';
 const store = useEditorStore();
 
 const mainCommonName = computed(() => store.tg?.TG_Name ?? '');
-const upovCodesStr = computed(() =>
-  store.upovCodes.map((uc) => uc.code).join('; '),
-);
+const upovCodesStr = computed(() => store.upovCodes.map((uc) => uc.code).join('; '));
 const documentName = computed(() => store.tg?.TG_Reference ?? '');
 const lastUpdated = computed(() => {
   if (!store.tg?.TG_lastupdated) return '';
-
   const date = new Date(store.tg.TG_lastupdated);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
+  const diffSecs = Math.floor((now.getTime() - date.getTime()) / 1000);
   const diffMins = Math.floor(diffSecs / 60);
-
-  let timeStr: string;
-
-  if (diffSecs < 60) {
-    timeStr = 'a few seconds ago';
-  } else if (diffMins === 1) {
-    timeStr = 'a minute ago';
-  } else if (diffMins < 60) {
-    timeStr = `${diffMins} minutes ago`;
-  } else {
-    const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
-    timeStr = `${datePart}, ${timePart}`;
-  }
-
-  return `Saved: ${timeStr}`;
+  if (diffSecs < 60) return 'Saved: a few seconds ago';
+  if (diffMins === 1) return 'Saved: a minute ago';
+  if (diffMins < 60) return `Saved: ${diffMins} minutes ago`;
+  const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `Saved: ${datePart}, ${timePart}`;
 });
 </script>
 
 <template>
   <Card elevation="low" padding="compact">
-    <div class="header-top">
-      <div class="header-fields">
-        <div class="header-field">
-          <span class="header-label">Main Common Name(s):</span>
-          <span class="header-value header-value--lg">{{ mainCommonName }}</span>
-        </div>
-        <div class="header-field">
-          <span class="header-label">UPOV Code(s):</span>
-          <span class="header-value">{{ upovCodesStr }}</span>
-        </div>
+    <div class="header-row">
+      <!-- Left: name + code inline -->
+      <div class="header-info">
+        <span class="header-name">{{ mainCommonName }}</span>
+        <span class="header-divider">·</span>
+        <span class="header-code">{{ upovCodesStr }}</span>
       </div>
-      <div class="header-right">
+
+      <!-- Right: doc ref + save status + submit -->
+      <div class="header-actions">
         <div class="header-meta">
           <span class="header-doc-name">{{ documentName }}</span>
           <SaveStatus :status="store.saveStatus" :idle-message="lastUpdated" />
@@ -63,53 +47,46 @@ const lastUpdated = computed(() => {
 </template>
 
 <style scoped>
-.header-top {
+.header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-}
-
-.header-fields {
-  display: flex;
-  align-items: flex-start;
-  gap: 48px;
-  flex: 1;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.header-field {
+.header-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.header-label {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--color-neutral-500);
-  line-height: 18px;
-}
-
-.header-value {
+.header-name {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-primary-green-dark);
   line-height: 20px;
-  margin: 0;
+  white-space: nowrap;
 }
 
-.header-value--lg {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 27px;
+.header-divider {
+  font-size: 14px;
+  color: var(--color-neutral-300);
 }
 
-.header-right {
+.header-code {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+
+.header-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 16px;
   flex-shrink: 0;
 }
 
@@ -117,12 +94,13 @@ const lastUpdated = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 1px;
 }
 
 .header-doc-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-neutral-500);
+  line-height: 16px;
 }
 </style>
