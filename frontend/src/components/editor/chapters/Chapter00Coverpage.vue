@@ -12,87 +12,159 @@ const { apiKey, init } = useTinymce({ height: 200 });
 const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
   useChapterPreview('00');
 
-// Use store.tg as the "data" guard — mirrors how other chapters use store.chapters['XX']
-const data = computed(() => store.tg);
-
-// ── Field values ─────────────────────────────────────────────────────────────
-
-// Main Common Name — editable, backed by tg.TG_Name
+// Main Common Name(s) — editable, backed by tg.TG_Name
 const mainCommonName = ref(store.tg?.TG_Name ?? '');
-watch(() => store.tg?.TG_Name, (v) => { mainCommonName.value = v ?? ''; });
+watch(
+  () => store.tg?.TG_Name,
+  (value) => {
+    mainCommonName.value = value ?? '';
+  },
+);
 
-function onMainCommonNameChange(e: Event) {
-  const val = (e.target as HTMLInputElement).value;
-  mainCommonName.value = val;
-  store.autosave('00', 'TG_Name', val);
-  markDirty();
-}
+// UPOV Code(s) — read-only
+const upovCodesStr = computed(() =>
+  store.upovCodes.map((uc) => uc.code).filter(Boolean).join('; '),
+);
 
-// UPOV Code(s) — read-only, derived from upovCodes
-const upovCodesStr = computed(() => store.upovCodes.map((uc) => uc.code).join('; '));
-
-// Botanical Name(s) — read-only, derived from upovCodes
-// botanicalName from the DB may contain HTML tags (<i>, <p>) — strip <p> only,
-// keep <i>/<b> so v-html renders them correctly
+// Botanical Name(s) — read-only, keep inline HTML like <i>
 const botanicalNames = computed(() =>
   store.upovCodes
-    .map((uc) => uc.botanicalName.replace(/<\/?p>/g, '').trim())
+    .map((uc) => (uc.botanicalName || '').replace(/<\/?p>/g, '').trim())
+    .filter(Boolean)
     .join(', '),
 );
 
 // Associated UPOV Documents — rich text, backed by tg.Name_AssoDocInfo
 const upovDocumentsContent = ref(store.tg?.Name_AssoDocInfo ?? '');
-watch(() => store.tg?.Name_AssoDocInfo, (v) => { upovDocumentsContent.value = v ?? ''; });
+watch(
+  () => store.tg?.Name_AssoDocInfo,
+  (value) => {
+    upovDocumentsContent.value = value ?? '';
+  },
+);
+
+function onFieldChange(field: 'TG_Name' | 'Name_AssoDocInfo', value: string) {
+  store.autosave('00', field, value);
+  markDirty();
+}
+
+function onMainCommonNameChange(e: Event) {
+  const value = (e.target as HTMLInputElement).value;
+  mainCommonName.value = value;
+  onFieldChange('TG_Name', value);
+}
 
 function onDocumentsChange(content: string) {
   upovDocumentsContent.value = content;
-  store.autosave('00', 'Name_AssoDocInfo', content);
-  markDirty();
+  onFieldChange('Name_AssoDocInfo', content);
 }
 </script>
 
 <template>
   <ChapterPreview
-    v-if="data"
+    v-if="store.tg"
     :loading="previewLoading"
     :needs-refresh="needsRefresh"
     @refresh="handleRefresh"
   >
     <template #edit>
       <Card elevation="low">
-        <div class="cover-fields">
+        <div style="display: flex; flex-direction: column; gap: 16px">
+          <h2
+            style="
+              font-size: 18px;
+              font-weight: 700;
+              color: var(--color-neutral-800);
+              line-height: 22px;
+              margin: 0;
+            "
+          >
+            C. Cover Page Information
+          </h2>
 
-          <!-- Main Common Name(s) -->
-          <div class="cover-field">
-            <label class="cover-label" for="cover-main-name">Main Common Name(s)</label>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label
+              for="cover-main-name"
+              style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)"
+            >
+              Main Common Name(s)
+            </label>
             <input
               id="cover-main-name"
-              class="cover-input"
               type="text"
               :value="mainCommonName"
               :disabled="!store.canEdit"
               placeholder="Enter main common name"
+              style="
+                height: 40px;
+                max-width: 480px;
+                padding: 0 12px;
+                border: 1px solid var(--color-neutral-300);
+                border-radius: 6px;
+                font-size: 14px;
+                color: var(--color-neutral-800);
+                background: #fff;
+                outline: none;
+              "
               @input="onMainCommonNameChange"
             />
           </div>
 
-          <!-- UPOV Code(s) — read-only, derived -->
-          <div class="cover-field">
-            <label class="cover-label">UPOV Code(s)</label>
-            <div class="cover-readonly">{{ upovCodesStr || '—' }}</div>
-            <span class="cover-hint">Managed via UPOV codes</span>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              UPOV Code(s)
+            </label>
+            <div
+              style="
+                min-height: 40px;
+                max-width: 480px;
+                display: flex;
+                align-items: center;
+                padding: 8px 12px;
+                border: 1px solid var(--color-neutral-200);
+                border-radius: 6px;
+                background: var(--color-neutral-50);
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--color-primary-green-dark, #1c4240);
+              "
+            >
+              {{ upovCodesStr || '—' }}
+            </div>
+            <span style="font-size: 12px; color: var(--color-neutral-500)">
+              Managed via UPOV codes
+            </span>
           </div>
 
-          <!-- Botanical Name(s) — read-only; v-html renders <i> tags from DB correctly -->
-          <div class="cover-field">
-            <label class="cover-label">Botanical Name(s)</label>
-            <div class="cover-readonly" v-html="botanicalNames || '—'" />
-            <span class="cover-hint">Managed via UPOV codes</span>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              Botanical Name(s)
+            </label>
+            <div
+              style="
+                min-height: 40px;
+                max-width: 480px;
+                display: flex;
+                align-items: center;
+                padding: 8px 12px;
+                border: 1px solid var(--color-neutral-200);
+                border-radius: 6px;
+                background: var(--color-neutral-50);
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--color-primary-green-dark, #1c4240);
+              "
+              v-html="botanicalNames || '—'"
+            />
+            <span style="font-size: 12px; color: var(--color-neutral-500)">
+              Managed via UPOV codes
+            </span>
           </div>
 
-          <!-- Associated UPOV Documents — rich text editor -->
-          <div class="cover-field">
-            <label class="cover-label">Please indicate other associated UPOV documents</label>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              Please indicate other associated UPOV documents
+            </label>
             <Editor
               :model-value="upovDocumentsContent"
               :api-key="apiKey"
@@ -101,79 +173,13 @@ function onDocumentsChange(content: string) {
               @update:model-value="onDocumentsChange"
             />
           </div>
-
         </div>
       </Card>
     </template>
 
-    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
+    <div v-if="previewError" style="color: #d32f2f; font-size: 13px">
+      ⚠ {{ previewError }}
+    </div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>
 </template>
-
-<style scoped>
-.cover-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.cover-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cover-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-neutral-700, #3d3d3d);
-  line-height: 18px;
-}
-
-.cover-input {
-  height: 40px;
-  padding: 0 12px;
-  font-size: 14px;
-  font-family: 'Figtree', 'Segoe UI', Arial, sans-serif;
-  color: var(--color-neutral-800, #1a1a1a);
-  background: #fff;
-  border: 1px solid var(--color-neutral-300, #c9c9c9);
-  border-radius: 6px;
-  outline: none;
-  transition: border-color 0.15s;
-  max-width: 480px;
-}
-
-.cover-input:focus {
-  border-color: var(--color-primary-green-dark, #1c4240);
-  box-shadow: 0 0 0 3px rgba(28, 66, 64, 0.1);
-}
-
-.cover-input:disabled {
-  background: var(--color-neutral-50, #f7f7f7);
-  color: var(--color-neutral-500, #7a7a7a);
-  cursor: not-allowed;
-}
-
-.cover-readonly {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-primary-green-dark, #1c4240);
-  line-height: 20px;
-  padding: 8px 12px;
-  background: var(--color-neutral-50, #f7f7f7);
-  border: 1px solid var(--color-neutral-200, #e2e2e2);
-  border-radius: 6px;
-  max-width: 480px;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-}
-
-.cover-hint {
-  font-size: 12px;
-  color: var(--color-neutral-400, #a0a0a0);
-  line-height: 16px;
-}
-</style>
