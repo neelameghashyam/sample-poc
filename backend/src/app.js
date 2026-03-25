@@ -29,6 +29,7 @@ import { updateMyTwps } from './handlers/profile.js';
 import { getConfig } from './handlers/config.js';
 import { authMiddleware } from './middleware/auth.js';
 import { editorAuthMiddleware } from './middleware/editor-auth.js';
+import { docGenPreview } from './handlers/chapters/doc-gen-preview.js';
 
 const app = new Hono();
 
@@ -64,7 +65,7 @@ app.get('/api/test-guidelines/:id/chapters/:ch/preview', docPreview);
 
 // Full document generate — proxies to Java doc-generate service (read-only)
 app.get('/api/test-guidelines/:id/doc-generate', docGenerate);
-
+app.get('/api/test-guidelines/:id/doc-gen-preview', docGenPreview);
 // LE authorization — enforces LE/admin access on all mutation routes below
 app.use('/api/test-guidelines/:id/*', editorAuthMiddleware);
 

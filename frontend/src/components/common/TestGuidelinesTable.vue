@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { DataTable, StatusBadge, ActionMenu } from 'upov-ui';
 import type { DataTableColumn, DataTableSortState, StatusBadgeVariant, ActionMenuItem } from 'upov-ui';
 import type { TGStatus, TestGuidelineListItem } from '@/types';
+import TgDocPreview from '@/components/common/TgDocPreview.vue';
 
 interface StatusOption {
   value: string;
@@ -33,6 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
   sortState: undefined,
   statusOptions: () => [],
   statusLabel: 'Status (Period)',
+  // Default actions: edit redirects to editor page; preview is handled by row click
   actions: () => [{ id: 'edit', label: 'Edit', icon: 'pencil' }],
   dateColumn: () => ({ key: 'lastUpdated', label: 'Last Updated' }),
   showDeadlineColumn: false,
@@ -50,6 +53,14 @@ const emit = defineEmits<{
   search: [value: string];
 }>();
 
+const router = useRouter();
+
+// ── Doc preview state ─────────────────────────────────────────────────────────
+const previewTgId = ref<number | null>(null);
+const previewTgReference = ref<string | undefined>(undefined);
+const previewTgName = ref<string | undefined>(undefined);
+
+// ── Columns ───────────────────────────────────────────────────────────────────
 const columns = computed<DataTableColumn[]>(() => {
   const cols: DataTableColumn[] = [
     { key: 'reference', label: 'TG Reference', width: '180px' },
@@ -89,8 +100,38 @@ function focusSearch() {
 
 defineExpose({ toggleFilters, focusSearch });
 
+// ── Row click → open full-document preview ────────────────────────────────────
 function onRowClick(row: Record<string, any>) {
+  // Find the full item to get reference/name for the panel header
+  const item = props.items.find((i) => i.id === row.id);
+  previewTgId.value = row.id;
+  previewTgReference.value = item?.reference ?? String(row.id);
+  previewTgName.value = item?.name ?? undefined;
+  // Also emit select so parent stores can track the selected id
   emit('select', row.id);
+}
+
+// ── Preview panel close ───────────────────────────────────────────────────────
+function onPreviewClose() {
+  previewTgId.value = null;
+  previewTgReference.value = undefined;
+  previewTgName.value = undefined;
+}
+
+// ── Preview panel → Edit button → navigate to editor ─────────────────────────
+function onPreviewEdit(id: number) {
+  onPreviewClose();
+  router.push(`/admin/test-guidelines/${id}`);
+}
+
+// ── Action menu (Edit, etc.) in the row ──────────────────────────────────────
+function onAction(actionId: string, tgId: number) {
+  if (actionId === 'edit') {
+    // Edit action always navigates directly to the editor page
+    router.push(`/admin/test-guidelines/${tgId}`);
+  } else {
+    emit('action', actionId, tgId);
+  }
 }
 </script>
 
@@ -118,15 +159,14 @@ function onRowClick(row: Record<string, any>) {
     @sort="(state: DataTableSortState) => emit('sort', state)"
     @search="(value: string) => emit('search', value)"
   >
-    <template #cell-reference="{ row, highlight }">
-      <RouterLink :to="`/admin/test-guidelines/${row.id}`" class="tg-link" @click.stop>
-        <span v-html="highlight ? highlight(row.reference) : row.reference" />
-      </RouterLink>
+    <template #cell-reference="{ row }">
+      <!-- Reference is now plain text; clicking the row opens the preview -->
+      <span class="tg-reference">{{ row.reference }}</span>
     </template>
 
-    <template #cell-leadExpert="{ row, highlight }">
+    <template #cell-leadExpert="{ row }">
       <template v-if="row.leadExpert">
-        <span v-html="highlight ? highlight(row.leadExpert) : row.leadExpert" />
+        {{ row.leadExpert }}
         <span v-if="row.leadExpertCountry" class="expert-country"> ({{ row.leadExpertCountry }})</span>
       </template>
     </template>
@@ -160,7 +200,7 @@ function onRowClick(row: Record<string, any>) {
     </template>
 
     <template #row-actions="{ row }">
-      <ActionMenu :items="actions" @select="(item: ActionMenuItem) => emit('action', item.id, row.id)" />
+      <ActionMenu :items="actions" @select="(item: ActionMenuItem) => onAction(item.id, row.id)" />
     </template>
 
     <template #row-detail="{ row, index }">
@@ -171,6 +211,15 @@ function onRowClick(row: Record<string, any>) {
       <slot name="pagination" />
     </template>
   </DataTable>
+
+  <!-- Full-document preview panel (shown on row click) -->
+  <TgDocPreview
+    :tg-id="previewTgId"
+    :tg-reference="previewTgReference"
+    :tg-name="previewTgName"
+    @close="onPreviewClose"
+    @edit="onPreviewEdit"
+  />
 </template>
 
 <style scoped>
@@ -188,5 +237,12 @@ function onRowClick(row: Record<string, any>) {
 .status-period {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
+}
+
+/* Reference text styled to hint it's clickable (row is the click target) */
+.tg-reference {
+  font-weight: 500;
+  color: var(--color-primary, #2563eb);
+  cursor: pointer;
 }
 </style>

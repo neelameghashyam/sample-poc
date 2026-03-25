@@ -103,6 +103,22 @@ export const editorApi = {
       })
       .then((r) => r.data),
 
+
+        /**
+   * Full document gen-preview (list page row click)
+   * GET /api/test-guidelines/:id/doc-gen-preview?lang=en
+   * Returns full HTML document preview for the test guideline.
+   * Proxied through Node BE → Java doc-gen-preview service.
+   * Uses extended timeout (3 minutes).
+   */
+  docGenPreview: (id: number, lang: string = 'en') =>
+    docGenerationApi
+      .get<string>(`${base(id)}/doc-gen-preview`, {
+        params: { lang },
+        responseType: 'text',
+      })
+      .then((r) => r.data),
+
   /**
    * Full document generate 
    * GET /api/test-guidelines/:id/doc-generate?lang=en
