@@ -73,6 +73,17 @@ function relogin() {
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* TinyMCE appends .tox-tinymce-aux to <body> — prevent it from causing horizontal scroll */
+.tox-tinymce-aux {
+  position: fixed !important;
+  overflow: hidden;
+}
+
 .app-container {
   height: 100vh;
   display: flex;
