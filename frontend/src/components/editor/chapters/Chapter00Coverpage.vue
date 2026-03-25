@@ -12,20 +12,23 @@ const { apiKey, init } = useTinymce({ height: 200 });
 const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
   useChapterPreview('00');
 
-const data = computed(() => store.chapters['00'] ?? {});
+// Ch00 data lives on store.tg (tgHeader), NOT store.chapters['00']
+const tg = computed(() => store.tg);
 
 function onFieldChange(field: string, value: string | null | undefined) {
   store.autosave('00', field, value);
   markDirty();
 }
 
+// UPOV Code(s) — read-only, managed via UPOV codes
 const upovCodesStr = computed(() =>
-  store.upovCodes.map((uc) => uc.code).filter(Boolean).join('; '),
+  store.upovCodes.map((uc: any) => uc.code).filter(Boolean).join('; '),
 );
 
+// Botanical Name(s) — read-only, preserve inline HTML like <i>
 const botanicalNames = computed(() =>
   store.upovCodes
-    .map((uc) => (uc.botanicalName || '').replace(/<\/?p>/g, '').trim())
+    .map((uc: any) => (uc.botanicalName || '').replace(/<\/?p>/g, '').trim())
     .filter(Boolean)
     .join(', '),
 );
@@ -33,7 +36,7 @@ const botanicalNames = computed(() =>
 
 <template>
   <ChapterPreview
-    v-if="data"
+    v-if="tg"
     :loading="previewLoading"
     :needs-refresh="needsRefresh"
     @refresh="handleRefresh"
@@ -42,75 +45,52 @@ const botanicalNames = computed(() =>
       <Card elevation="low">
         <div style="display: flex; flex-direction: column; gap: 16px">
 
-          <!-- Section heading — mirrors Chapter 01's h2 style -->
-          <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">
-            0. Name and UPOV Information
-          </h2>
-
-          <!-- ── 0.1 Main Common Name(s) ── -->
-          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-            <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              0.1 Main Common Name(s)
-            </h3>
-            <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              Enter the main common name used to identify this crop in these Test Guidelines.
-              <span style="color: #D32F2F; margin-left: 2px">*</span>
-            </p>
+          <!-- Main Common Name(s) -->
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              Main Common Name(s)
+            </label>
             <input
               type="text"
-              :value="(data as any).TG_Name || ''"
+              :value="tg.TG_Name || ''"
               :disabled="!store.canEdit"
               placeholder="Enter main common name"
               maxlength="250"
-              style="height: 40px; width: 100%; padding: 0 12px; border: 1px solid var(--color-neutral-300); border-radius: 6px; font-size: 14px; color: var(--color-neutral-800); background: #fff; outline: none; box-sizing: border-box;"
+              style="height: 40px; width: 100%; padding: 0 12px; border: 1px solid var(--color-neutral-300); border-radius: 6px; font-size: 14px; color: var(--color-neutral-800); background: #fff; outline: none;"
               @input="onFieldChange('TG_Name', ($event.target as HTMLInputElement).value)"
             />
           </div>
 
-          <!-- ── 0.2 UPOV Code(s) — read-only ── -->
-          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-            <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              0.2 UPOV Code(s)
-            </h3>
-            <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              The UPOV code(s) associated with this Test Guideline. Managed centrally via the UPOV codes panel.
-            </p>
+          <!-- UPOV Code(s) — read-only -->
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              UPOV Code(s)
+            </label>
             <div style="min-height: 40px; display: flex; align-items: center; padding: 8px 12px; border: 1px solid var(--color-neutral-200); border-radius: 6px; background: var(--color-neutral-50); font-size: 14px; font-weight: 600; color: var(--color-primary-green-dark, #1c4240);">
               {{ upovCodesStr || '—' }}
             </div>
-            <span style="font-size: 12px; color: var(--color-neutral-500)">
-              Read-only — managed via UPOV codes
-            </span>
+            <span style="font-size: 12px; color: var(--color-neutral-500)">Managed via UPOV codes</span>
           </div>
 
-          <!-- ── 0.3 Botanical Name(s) — read-only ── -->
-          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-            <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              0.3 Botanical Name(s)
-            </h3>
-            <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              The botanical name(s) derived from the associated UPOV codes. Managed centrally via the UPOV codes panel.
-            </p>
+          <!-- Botanical Name(s) — read-only -->
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              Botanical Name(s)
+            </label>
             <div
               style="min-height: 40px; display: flex; align-items: center; padding: 8px 12px; border: 1px solid var(--color-neutral-200); border-radius: 6px; background: var(--color-neutral-50); font-size: 14px; font-weight: 600; color: var(--color-primary-green-dark, #1c4240);"
               v-html="botanicalNames || '—'"
             />
-            <span style="font-size: 12px; color: var(--color-neutral-500)">
-              Read-only — managed via UPOV codes
-            </span>
+            <span style="font-size: 12px; color: var(--color-neutral-500)">Managed via UPOV codes</span>
           </div>
 
-          <!-- ── 0.4 Other associated UPOV documents ── -->
-          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--color-neutral-200); border-radius: 8px;">
-            <h3 style="font-size: 15px; font-weight: 700; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              0.4 Associated UPOV documents
-            </h3>
-            <p style="font-size: 14px; color: var(--color-neutral-800); line-height: 20px; margin: 0">
-              Please indicate other associated UPOV documents relevant to these Test Guidelines.
-              <span style="font-size: 12px; font-weight: 400; color: var(--color-neutral-500); margin-left: 6px">(optional)</span>
-            </p>
+          <!-- Other associated UPOV documents -->
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
+              Please indicate other associated UPOV documents
+            </label>
             <Editor
-              :model-value="(data as any).Name_AssoDocInfo || ''"
+              :model-value="tg.Name_AssoDocInfo || ''"
               :api-key="apiKey"
               :init="init"
               :disabled="!store.canEdit"
@@ -122,10 +102,7 @@ const botanicalNames = computed(() =>
       </Card>
     </template>
 
-    <!-- Preview slot -->
-    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">
-      ⚠ {{ previewError }}
-    </div>
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>
 </template>
