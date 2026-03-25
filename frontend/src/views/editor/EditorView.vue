@@ -207,6 +207,7 @@ watchEffect(() => {
   display: flex;
   align-items: flex-start;
   gap: 24px;
+  min-width: 0;
 }
 
 .editor-main {

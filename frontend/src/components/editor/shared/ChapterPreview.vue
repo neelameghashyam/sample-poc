@@ -171,12 +171,13 @@ onUnmounted(() => {
             </div>
             <!-- Refresh -->
             <button
+              type="button"
               class="refresh-btn"
               :class="{ 'refresh-btn--stale': needsRefresh && !loading }"
               :disabled="loading"
               :style="loading ? { opacity:'0.6', cursor:'not-allowed' } : {}"
               :title="needsRefresh ? 'Content changed — refresh preview' : 'Refresh preview'"
-              @click="handleRefresh"
+              @click.prevent="handleRefresh"
             >
               <Icon
                 icon="arrow-clockwise"
@@ -228,13 +229,14 @@ onUnmounted(() => {
 
     <!-- Toggle button fixed to right edge -->
     <button
+      type="button"
       class="preview-toggle-btn"
       :class="{
         'preview-toggle-btn--stale': needsRefresh && !loading,
         'preview-toggle-btn--open':  isOpen,
       }"
       :title="isOpen ? 'Close preview' : 'Open chapter preview'"
-      @click="togglePanel"
+      @click.prevent="togglePanel"
     >
       <Icon :icon="isOpen ? 'x' : 'eye'" size="small" style="color:inherit;flex-shrink:0;" />
       <span class="preview-toggle-label">{{ isOpen ? 'Close' : 'Preview' }}</span>
@@ -243,7 +245,7 @@ onUnmounted(() => {
 
     <!-- Backdrop -->
     <Transition name="backdrop">
-      <div v-if="isOpen" class="preview-backdrop" @click="closePanel" />
+      <div v-if="isOpen" class="preview-backdrop" @click.prevent="closePanel" />
     </Transition>
 
     <!-- Slide-in panel -->
@@ -274,7 +276,7 @@ onUnmounted(() => {
               </span>
             </Transition>
           </div>
-          <button class="panel-close-btn" title="Close preview" @click="closePanel">
+          <button type="button" class="panel-close-btn" title="Close preview" @click.prevent="closePanel">
             <Icon icon="x" size="small" />
           </button>
         </div>
@@ -292,12 +294,13 @@ onUnmounted(() => {
             </span>
           </div>
           <button
+            type="button"
             class="refresh-btn"
             :class="{ 'refresh-btn--stale': needsRefresh && !loading }"
             :disabled="loading"
             :style="loading ? { opacity:'0.6', cursor:'not-allowed' } : {}"
             :title="needsRefresh ? 'Content changed — refresh preview' : 'Refresh preview'"
-            @click="handleRefresh"
+                          @click.prevent="handleRefresh"
           >
             <Icon icon="arrow-clockwise" size="small" :class="{ 'icon-spin': loading }" style="color:inherit" />
             <span>{{ loading ? 'Loading…' : 'Refresh' }}</span>
@@ -350,6 +353,7 @@ onUnmounted(() => {
   gap: 0;
   width: 100%;
   min-height: 400px;
+  overflow: hidden;
   /* Prevent text selection flash while dragging */
 }
 .split-container--dragging * { user-select: none; }

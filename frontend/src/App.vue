@@ -90,5 +90,7 @@ function relogin() {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
 }
 </style>
