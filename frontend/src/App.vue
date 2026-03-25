@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { Modal, Button, ToastContainer, useToast } from 'upov-ui';
@@ -42,39 +42,6 @@ function relogin() {
   authStore.logout();
   router.push('/login');
 }
-
-// ── TinyMCE layout-shift fix ─────────────────────────────────────────────────
-// TinyMCE appends a .tox-tinymce-aux div to <body> with inline style="position:relative"
-// This causes the body to overflow horizontally → vertical scrollbar appears →
-// viewport shrinks by ~19px → layout shifts on the first chapter loaded.
-// We watch for this div being added and force position:fixed via JS,
-// which takes it out of flow and prevents the overflow entirely.
-let observer: MutationObserver | null = null;
-
-function fixToxAux() {
-  document.querySelectorAll<HTMLElement>('.tox-tinymce-aux').forEach((el) => {
-    if (el.style.position !== 'fixed') {
-      el.style.setProperty('position', 'fixed', 'important');
-    }
-  });
-}
-
-onMounted(() => {
-  fixToxAux();
-  observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      if (m.type === 'childList' && m.addedNodes.length) {
-        fixToxAux();
-      }
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: false });
-});
-
-onUnmounted(() => {
-  observer?.disconnect();
-  observer = null;
-});
 </script>
 
 <template>
@@ -106,16 +73,31 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-html, body {
+html {
   overflow-x: hidden;
-  width: 100%;
-  /* Reserve scrollbar space always so TinyMCE init doesn't cause a layout shift */
-  scrollbar-gutter: stable;
 }
 
-/* TinyMCE appends .tox-tinymce-aux to <body> — keep it out of the layout flow */
+body {
+  overflow-x: hidden;
+  min-height: 100%;
+}
+
+/* TinyMCE appends .tox-tinymce-aux to <body> with position:relative + large width,
+   causing a horizontal scrollbar that shrinks the viewport by ~19px.
+   Fix: take it out of flow entirely with position:fixed + zero footprint,
+   while keeping overflow:visible so floating toolbars/dropdowns still appear. */
 .tox-tinymce-aux {
   position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: visible !important;
+  pointer-events: none;
+}
+/* Re-enable pointer events on tox popups/toolbars inside the aux container */
+.tox-tinymce-aux > * {
+  pointer-events: auto;
 }
 
 .app-container {
