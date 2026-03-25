@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router';
 import { DataTable, StatusBadge, ActionMenu } from 'upov-ui';
 import type { DataTableColumn, DataTableSortState, StatusBadgeVariant, ActionMenuItem } from 'upov-ui';
 import type { TGStatus, TestGuidelineListItem } from '@/types';
-import TgDocPreview from '@/components/common/TgDocPreview.vue';
 
 interface StatusOption {
   value: string;
@@ -35,7 +34,7 @@ const props = withDefaults(defineProps<Props>(), {
   sortState: undefined,
   statusOptions: () => [],
   statusLabel: 'Status (Period)',
-  // Default actions: edit redirects to editor page; preview is handled by row click
+  // Edit action navigates to the editor; row click navigates to the preview route
   actions: () => [{ id: 'edit', label: 'Edit', icon: 'pencil' }],
   dateColumn: () => ({ key: 'lastUpdated', label: 'Last Updated' }),
   showDeadlineColumn: false,
@@ -54,11 +53,6 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
-
-// ── Doc preview state ─────────────────────────────────────────────────────────
-const previewTgId = ref<number | null>(null);
-const previewTgReference = ref<string | undefined>(undefined);
-const previewTgName = ref<string | undefined>(undefined);
 
 // ── Columns ───────────────────────────────────────────────────────────────────
 const columns = computed<DataTableColumn[]>(() => {
@@ -100,34 +94,15 @@ function focusSearch() {
 
 defineExpose({ toggleFilters, focusSearch });
 
-// ── Row click → open full-document preview ────────────────────────────────────
+// ── Row click → navigate to the full-document preview page ───────────────────
 function onRowClick(row: Record<string, any>) {
-  // Find the full item to get reference/name for the panel header
-  const item = props.items.find((i) => i.id === row.id);
-  previewTgId.value = row.id;
-  previewTgReference.value = item?.reference ?? String(row.id);
-  previewTgName.value = item?.name ?? undefined;
-  // Also emit select so parent stores can track the selected id
   emit('select', row.id);
+  router.push({ name: 'tg-doc-preview', params: { id: row.id } });
 }
 
-// ── Preview panel close ───────────────────────────────────────────────────────
-function onPreviewClose() {
-  previewTgId.value = null;
-  previewTgReference.value = undefined;
-  previewTgName.value = undefined;
-}
-
-// ── Preview panel → Edit button → navigate to editor ─────────────────────────
-function onPreviewEdit(id: number) {
-  onPreviewClose();
-  router.push(`/admin/test-guidelines/${id}`);
-}
-
-// ── Action menu (Edit, etc.) in the row ──────────────────────────────────────
+// ── Action menu: Edit → navigate to editor; others bubble up ─────────────────
 function onAction(actionId: string, tgId: number) {
   if (actionId === 'edit') {
-    // Edit action always navigates directly to the editor page
     router.push(`/admin/test-guidelines/${tgId}`);
   } else {
     emit('action', actionId, tgId);
@@ -160,7 +135,7 @@ function onAction(actionId: string, tgId: number) {
     @search="(value: string) => emit('search', value)"
   >
     <template #cell-reference="{ row }">
-      <!-- Reference is now plain text; clicking the row opens the preview -->
+      <!-- Plain text — the whole row is the click target for preview navigation -->
       <span class="tg-reference">{{ row.reference }}</span>
     </template>
 
@@ -200,7 +175,10 @@ function onAction(actionId: string, tgId: number) {
     </template>
 
     <template #row-actions="{ row }">
-      <ActionMenu :items="actions" @select="(item: ActionMenuItem) => onAction(item.id, row.id)" />
+      <ActionMenu
+        :items="actions"
+        @select="(item: ActionMenuItem) => onAction(item.id, row.id)"
+      />
     </template>
 
     <template #row-detail="{ row, index }">
@@ -211,15 +189,6 @@ function onAction(actionId: string, tgId: number) {
       <slot name="pagination" />
     </template>
   </DataTable>
-
-  <!-- Full-document preview panel (shown on row click) -->
-  <TgDocPreview
-    :tg-id="previewTgId"
-    :tg-reference="previewTgReference"
-    :tg-name="previewTgName"
-    @close="onPreviewClose"
-    @edit="onPreviewEdit"
-  />
 </template>
 
 <style scoped>
@@ -239,10 +208,9 @@ function onAction(actionId: string, tgId: number) {
   color: var(--color-text-secondary);
 }
 
-/* Reference text styled to hint it's clickable (row is the click target) */
+/* Visually hints the reference is the row entry point */
 .tg-reference {
   font-weight: 500;
   color: var(--color-primary, #2563eb);
-  cursor: pointer;
 }
 </style>

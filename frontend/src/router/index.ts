@@ -99,6 +99,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    // Full-document preview page — reached by clicking a row in TestGuidelinesTable.
+    // FE → Node BE (/api/test-guidelines/:id/doc-gen-preview) → Java API
+    path: '/test-guidelines/:id/preview',
+    name: 'tg-doc-preview',
+    component: () => import('@/views/test-guidelines/TgDocPreviewView.vue'),
+    meta: { requiresAuth: true, requiresAccess: true },
+  },
+  {
     path: '/admin/test-guidelines/:id',
     name: 'editor',
     component: () => import('@/views/editor/EditorView.vue'),
@@ -114,7 +122,6 @@ const routes: RouteRecordRaw[] = [
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
   },
-
 ];
 
 const router = createRouter({
