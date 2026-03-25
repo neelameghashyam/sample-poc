@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
-import { Card } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import { useChapterPreview } from '@/composables/useChapterPreview';
@@ -41,8 +40,7 @@ const botanicalNames = computed(() =>
     @refresh="handleRefresh"
   >
     <template #edit>
-      <Card elevation="low">
-        <div style="display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 16px">
 
           <!-- Main Common Name(s) -->
           <div style="display: flex; flex-direction: column; gap: 6px">
@@ -102,7 +100,6 @@ const botanicalNames = computed(() =>
           </div>
 
       </div>
-      </Card>
     </template>
 
     <!-- Preview slot -->
