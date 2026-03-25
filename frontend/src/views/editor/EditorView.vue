@@ -148,7 +148,9 @@ watchEffect(() => {
     <!-- Editor -->
     <template v-else>
       <div class="editor-layout">
-        <EditorStepper />
+        <div class="editor-stepper-wrap">
+          <EditorStepper />
+        </div>
 
         <main class="editor-main">
           <h1 class="editor-chapter-title">
@@ -207,6 +209,13 @@ watchEffect(() => {
   display: flex;
   align-items: flex-start;
   gap: 24px;
+  min-width: 0;
+}
+
+.editor-stepper-wrap {
+  flex-shrink: 0;
+  align-self: flex-start;
+  max-width: 220px;
   min-width: 0;
 }
 
