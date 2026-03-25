@@ -1,111 +1,52 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import Editor from '@tinymce/tinymce-vue';
+import { Card } from 'upov-ui';
 import { useEditorStore } from '@/stores/editor';
 import { useTinymce } from '@/composables/useTinymce';
 import { useChapterPreview } from '@/composables/useChapterPreview';
 import ChapterPreview from '@/components/editor/shared/ChapterPreview.vue';
 
 const store = useEditorStore();
-const { apiKey, init } = useTinymce({ height: 200 });
-const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } = useChapterPreview('00');
+const { apiKey, init } = useTinymce({ height: 400 });
+const { previewHtml, previewLoading, previewError, needsRefresh, markDirty, handleRefresh } =
+  useChapterPreview('00');
 
-const data = computed(() => store.chapters['00']);
+const data = computed(() => store.chapters['00'] ?? {});
 
-function onFieldChange(field: string, value: string | null | undefined) {
-  store.autosave('00', field, value);
+function onContentChange(value: string) {
+  store.autosave('00', 'coverPageInfo', value);
   markDirty();
 }
-
-// UPOV Code(s) — read-only
-const upovCodesStr = computed(() =>
-  store.upovCodes.map((uc) => uc.code).filter(Boolean).join('; '),
-);
-
-// Botanical Name(s) — read-only, keep inline HTML like <i>
-const botanicalNames = computed(() =>
-  store.upovCodes
-    .map((uc) => (uc.botanicalName || '').replace(/<\/?p>/g, '').trim())
-    .filter(Boolean)
-    .join(', '),
-);
-
 </script>
 
 <template>
- <ChapterPreview
+  <ChapterPreview
     v-if="data"
     :loading="previewLoading"
     :needs-refresh="needsRefresh"
     @refresh="handleRefresh"
   >
     <template #edit>
-      <div style="display: flex; flex-direction: column; gap: 16px">
+      <Card elevation="low">
+        <div style="display: flex; flex-direction: column; gap: 12px">
 
-          <!-- Main Common Name(s) -->
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
-              Main Common Name(s)
-            </label>
-            <input
-              type="text"
-              :value="data.TG_Name || ''"
-              :disabled="!store.canEdit"
-              placeholder="Enter main common name"
-              maxlength="250"
-              style="height: 40px; max-width: 480px; padding: 0 12px; border: 1px solid var(--color-neutral-300); border-radius: 6px; font-size: 14px; color: var(--color-neutral-800); background: #fff; outline: none;"
-              @input="onFieldChange('TG_Name', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
+          <label style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px">
+            Please enter the cover page information for these Test Guidelines:
+          </label>
 
-          <!-- UPOV Code(s) — read-only -->
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
-              UPOV Code(s)
-            </label>
-            <div style="min-height: 40px; max-width: 480px; display: flex; align-items: center; padding: 8px 12px; border: 1px solid var(--color-neutral-200); border-radius: 6px; background: var(--color-neutral-50); font-size: 14px; font-weight: 600; color: var(--color-primary-green-dark, #1c4240);">
-              {{ upovCodesStr || '—' }}
-            </div>
-            <span style="font-size: 12px; color: var(--color-neutral-500)">
-              Managed via UPOV codes
-            </span>
-          </div>
+          <Editor
+            :model-value="(data as any).coverPageInfo ?? ''"
+            :api-key="apiKey"
+            :init="init"
+            @update:model-value="onContentChange"
+          />
 
-          <!-- Botanical Name(s) — read-only -->
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
-              Botanical Name(s)
-            </label>
-            <div
-              style="min-height: 40px; max-width: 480px; display: flex; align-items: center; padding: 8px 12px; border: 1px solid var(--color-neutral-200); border-radius: 6px; background: var(--color-neutral-50); font-size: 14px; font-weight: 600; color: var(--color-primary-green-dark, #1c4240);"
-              v-html="botanicalNames || '—'"
-            />
-            <span style="font-size: 12px; color: var(--color-neutral-500)">
-              Managed via UPOV codes
-            </span>
-          </div>
-
-          <!-- Associated UPOV documents -->
-          <div style="display: flex; flex-direction: column; gap: 6px">
-            <label style="font-size: 14px; font-weight: 600; color: var(--color-neutral-800)">
-              Please indicate other associated UPOV documents
-            </label>
-            <Editor
-              :model-value="data.Name_AssoDocInfo || ''"
-              :api-key="apiKey"
-              :init="init"
-              :disabled="!store.canEdit"
-              @update:model-value="onFieldChange('Name_AssoDocInfo', $event)"
-            />
-          </div>
-
-      </div>
+        </div>
+      </Card>
     </template>
 
-    <!-- Preview slot -->
-    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">
-      ⚠ {{ previewError }}
-    </div>
+    <div v-if="previewError" style="color: #D32F2F; font-size: 13px">⚠ {{ previewError }}</div>
     <div v-else-if="previewHtml" v-html="previewHtml" />
   </ChapterPreview>
 </template>
