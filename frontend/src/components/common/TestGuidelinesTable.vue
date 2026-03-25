@@ -136,7 +136,7 @@ function onAction(actionId: string, tgId: number) {
   >
     <template #cell-reference="{ row }">
       <!-- Plain text — the whole row is the click target for preview navigation -->
-      <span class="tg-reference">{{ row.reference }}</span>
+      <span>{{ row.reference }}</span>
     </template>
 
     <template #cell-leadExpert="{ row }">
@@ -208,9 +208,4 @@ function onAction(actionId: string, tgId: number) {
   color: var(--color-text-secondary);
 }
 
-/* Visually hints the reference is the row entry point */
-.tg-reference {
-  font-weight: 500;
-  color: var(--color-primary, #2563eb);
-}
 </style>
