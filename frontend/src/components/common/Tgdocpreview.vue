@@ -13,10 +13,12 @@
  */
 import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { Button, Card, Skeleton, useToast } from 'upov-ui';
 import { editorApi } from '@/services/editor-api';
 
 const route  = useRoute();
 const router = useRouter();
+const toast  = useToast();
 
 // ── Route param ───────────────────────────────────────────────────────────────
 const tgId = ref<number>(Number(route.params.id));
@@ -46,9 +48,11 @@ async function loadPreview() {
   try {
     previewHtml.value = await editorApi.docGenPreview(tgId.value, selectedLang.value);
   } catch (err: any) {
-    error.value =
+    const message =
       err?.response?.data?.error?.message ||
       'Failed to load document preview. Please try again.';
+    error.value = message;
+    toast.show(message, { variant: 'error' });
     console.error('TgDocPreviewView load error:', err);
   } finally {
     loading.value = false;
@@ -62,12 +66,8 @@ watch(selectedLang, loadPreview);
 onMounted(loadPreview);
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/test-guidelines/twp-drafts');
-  }
+function backToDashboard() {
+  router.push({ name: 'admin-test-guidelines' });
 }
 
 function goToEditor() {
@@ -76,31 +76,24 @@ function goToEditor() {
 </script>
 
 <template>
-  <div class="preview-page">
+  <div class="preview-root">
 
-    <!-- Top bar -->
-    <div class="preview-toolbar">
-      <div class="preview-toolbar__left">
-        <button class="toolbar-btn toolbar-btn--ghost" @click="goBack">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
-          </svg>
-          Back
-        </button>
+    <!-- Top bar — mirrors .editor-topbar pattern from EditorView -->
+    <div class="preview-topbar">
+      <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">
+        Back to TG Dashboard
+      </Button>
 
-        <span class="preview-toolbar__divider" />
-
-        <span class="preview-toolbar__title">Document Preview</span>
-        <span class="preview-toolbar__id">#{{ tgId }}</span>
+      <div class="preview-topbar__meta">
+        <span class="preview-topbar__title">Document Preview</span>
+        <span class="preview-topbar__id">#{{ tgId }}</span>
       </div>
 
-      <div class="preview-toolbar__right">
+      <div class="preview-topbar__actions">
         <!-- Language selector -->
         <select
           v-model="selectedLang"
-          class="lang-select"
+          class="preview-lang-select"
           :disabled="loading"
           aria-label="Preview language"
         >
@@ -109,258 +102,201 @@ function goToEditor() {
           </option>
         </select>
 
-        <!-- Refresh -->
-        <button
-          class="toolbar-btn toolbar-btn--icon"
+        <!-- Refresh — tertiary icon button -->
+        <Button
+          type="tertiary"
+          icon-left="refresh"
           :disabled="loading"
-          title="Refresh preview"
+          :loading="loading"
           @click="loadPreview"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"
-               :class="{ spin: loading }">
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-            <path d="M21 3v5h-5" />
-            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-            <path d="M8 16H3v5" />
-          </svg>
-        </button>
+          Refresh
+        </Button>
 
-        <!-- Edit -->
-        <button class="toolbar-btn toolbar-btn--primary" @click="goToEditor">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
-          </svg>
+        <!-- Edit — primary action, same as EditorHeader submit -->
+        <Button type="primary" icon-left="pencil" @click="goToEditor">
           Edit
-        </button>
+        </Button>
       </div>
     </div>
 
-    <!-- Content area -->
-    <div class="preview-content-wrap">
-
-      <!-- Loading -->
-      <div v-if="loading" class="preview-state">
-        <div class="preview-spinner" />
-        <p>Loading document preview…</p>
+    <!-- Loading skeleton — mirrors .skel pattern from EditorView -->
+    <div v-if="loading" class="skel">
+      <div class="skel-header">
+        <Skeleton width="35%" height="20px" />
+        <Skeleton width="55%" height="14px" />
+        <Skeleton width="45%" height="14px" />
       </div>
-
-      <!-- Error -->
-      <div v-else-if="error" class="preview-state preview-state--error">
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="1.5"
-             stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <p>{{ error }}</p>
-        <button class="toolbar-btn toolbar-btn--primary" @click="loadPreview">
-          Retry
-        </button>
+      <div class="skel-body">
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="80%"  height="14px" />
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="60%"  height="14px" />
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="90%"  height="14px" />
       </div>
-
-      <!-- Document HTML from Java -->
-      <div
-        v-else-if="previewHtml"
-        class="preview-document"
-        v-html="previewHtml"
-      />
-
-      <!-- Empty -->
-      <div v-else class="preview-state">
-        <p>No preview available.</p>
-      </div>
-
     </div>
+
+    <!-- Error state — mirrors .editor-error pattern from EditorView -->
+    <div v-else-if="error" class="preview-error">
+      <p>{{ error }}</p>
+      <Button type="tertiary" icon-left="refresh" @click="loadPreview">
+        Try again
+      </Button>
+    </div>
+
+    <!-- Document HTML rendered inside a Card — mirrors EditorHeader Card usage -->
+    <Card v-else-if="previewHtml" elevation="low" padding="none" class="preview-card">
+      <div class="preview-document" v-html="previewHtml" />
+    </Card>
+
+    <!-- Empty fallback -->
+    <div v-else class="preview-error">
+      <p>No preview available for this test guideline.</p>
+    </div>
+
   </div>
 </template>
 
 <style scoped>
-/* ── Page shell ───────────────────────────────────────────────────────────── */
-.preview-page {
+/* ── Reset (same pattern as EditorView) ───────────────────────────────────── */
+.preview-root *, .preview-root *::before, .preview-root *::after { box-sizing: border-box; }
+.preview-root h1, .preview-root h2, .preview-root h3, .preview-root p { margin: 0; padding: 0; }
+
+/* ── Root shell ───────────────────────────────────────────────────────────── */
+.preview-root {
+  font-family: 'Figtree', sans-serif;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  background: var(--color-bg, #f3f4f6);
+  gap: 24px;
+  color: var(--color-neutral-800);
 }
 
-/* ── Toolbar ──────────────────────────────────────────────────────────────── */
-.preview-toolbar {
+/* ── Top bar — mirrors .editor-topbar ─────────────────────────────────────── */
+.preview-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 24px;
-  background: var(--color-surface, #fff);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  flex-shrink: 0;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.preview-toolbar__left,
-.preview-toolbar__right {
+.preview-topbar__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-topbar__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary-green-dark);
+  white-space: nowrap;
+}
+
+.preview-topbar__id {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+
+.preview-topbar__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.preview-toolbar__divider {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border, #e5e7eb);
-}
-
-.preview-toolbar__title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text-primary, #111827);
-}
-
-.preview-toolbar__id {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary, #6b7280);
-}
-
-/* ── Buttons ──────────────────────────────────────────────────────────────── */
-.toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 0.8125rem;
+/* ── Language select — styled to sit alongside upov-ui Buttons ───────────── */
+.preview-lang-select {
+  height: 36px;
+  padding: 0 10px;
+  font-family: 'Figtree', sans-serif;
+  font-size: 13px;
   font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--color-border, #d1d5db);
-  background: var(--color-surface, #fff);
-  color: var(--color-text-primary, #374151);
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.toolbar-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover, #f3f4f6);
-}
-
-.toolbar-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toolbar-btn--ghost {
-  border-color: transparent;
-  background: transparent;
-  color: var(--color-text-secondary, #6b7280);
-}
-
-.toolbar-btn--ghost:hover {
-  background: var(--color-surface-hover, #f3f4f6);
-  color: var(--color-text-primary, #374151);
-}
-
-.toolbar-btn--icon {
-  padding: 6px;
-}
-
-.toolbar-btn--primary {
-  background: var(--color-primary, #2563eb);
-  border-color: var(--color-primary, #2563eb);
-  color: #fff;
-}
-
-.toolbar-btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover, #1d4ed8);
-  border-color: var(--color-primary-hover, #1d4ed8);
-}
-
-/* ── Language select ──────────────────────────────────────────────────────── */
-.lang-select {
-  font-size: 0.8125rem;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border, #d1d5db);
+  border: 1px solid var(--color-neutral-300, #d1d5db);
   border-radius: 6px;
-  background: var(--color-surface, #fff);
-  color: var(--color-text-primary, #111827);
+  background: var(--color-neutral-0, #fff);
+  color: var(--color-neutral-800, #1f2937);
   cursor: pointer;
   outline: none;
+  transition: border-color 0.15s;
 }
 
-.lang-select:focus {
-  border-color: var(--color-primary, #2563eb);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+.preview-lang-select:focus {
+  border-color: var(--color-primary-green-dark);
+  box-shadow: 0 0 0 2px rgba(28, 66, 64, 0.12);
 }
 
-.lang-select:disabled {
+.preview-lang-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* ── Content wrapper ──────────────────────────────────────────────────────── */
-.preview-content-wrap {
-  flex: 1;
-  overflow-y: auto;
-  padding: 32px 24px;
+/* ── Loading skeleton — mirrors .skel from EditorView ─────────────────────── */
+.skel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-/* ── States ───────────────────────────────────────────────────────────────── */
-.preview-state {
+.skel-header {
+  background: var(--color-neutral-0, #fff);
+  border-radius: 8px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skel-body {
+  background: var(--color-neutral-0, #fff);
+  border-radius: 8px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Error state — mirrors .editor-error from EditorView ─────────────────── */
+.preview-error {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  min-height: 300px;
-  color: var(--color-text-secondary, #6b7280);
-  font-size: 0.9rem;
+  gap: 16px;
+  padding: 64px 0;
+  color: var(--color-danger, #D32F2F);
+  font-size: 15px;
+  text-align: center;
 }
 
-.preview-state--error {
-  color: var(--color-danger, #dc2626);
+/* ── Card wrapping the document ──────────────────────────────────────────── */
+.preview-card {
+  flex: 1;
 }
 
-/* ── Spinner ──────────────────────────────────────────────────────────────── */
-.preview-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--color-border, #e5e7eb);
-  border-top-color: var(--color-primary, #2563eb);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.spin {
-  animation: spin 0.7s linear infinite;
-}
-
-/* ── Document body (HTML from Java) ──────────────────────────────────────── */
+/* ── Document HTML rendered by Java ─────────────────────────────────────── */
 .preview-document {
   max-width: 860px;
   margin: 0 auto;
-  background: var(--color-surface, #fff);
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   padding: 48px 56px;
-  font-family: var(--font-family-document, Georgia, serif);
-  font-size: 0.9375rem;
+  font-family: Georgia, serif;
+  font-size: 15px;
   line-height: 1.75;
-  color: var(--color-text-primary, #111827);
+  color: var(--color-neutral-800, #1f2937);
 }
 
 :deep(.preview-document) h1,
 :deep(.preview-document) h2,
 :deep(.preview-document) h3,
 :deep(.preview-document) h4 {
-  font-family: var(--font-family-sans, system-ui, sans-serif);
+  font-family: 'Figtree', sans-serif;
   font-weight: 600;
+  color: var(--color-primary-green-dark);
   margin: 1.4em 0 0.5em;
   line-height: 1.3;
 }
@@ -373,19 +309,20 @@ function goToEditor() {
   width: 100%;
   border-collapse: collapse;
   margin: 1.25em 0;
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 :deep(.preview-document) th,
 :deep(.preview-document) td {
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 1px solid var(--color-neutral-200, #e5e7eb);
   padding: 8px 12px;
   text-align: left;
   vertical-align: top;
 }
 
 :deep(.preview-document) th {
-  background: var(--color-surface-raised, #f9fafb);
+  background: var(--color-neutral-50, #f9fafb);
+  font-family: 'Figtree', sans-serif;
   font-weight: 600;
 }
 
