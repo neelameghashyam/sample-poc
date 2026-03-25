@@ -34,3 +34,15 @@ function onCollapseToggle() {
     @collapse-toggle="onCollapseToggle"
   />
 </template>
+
+<style scoped>
+/* Hide the "Chapters" heading that upov-ui Stepper renders internally */
+:deep([class*="stepper-heading"]),
+:deep([class*="stepper-title"]),
+:deep([class*="stepper-label"]),
+:deep([class*="step-heading"]),
+:deep([class*="nav-heading"]),
+:deep([class*="nav-title"]) {
+  display: none !important;
+}
+</style>

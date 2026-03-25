@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { Modal, Button, ToastContainer, useToast } from 'upov-ui';
@@ -17,6 +17,7 @@ const isFullscreenPage = computed(() =>
   ['/login', '/auth/callback'].includes(route.path),
 );
 
+// Check for toast message after navigation (set via sessionStorage by other pages)
 router.afterEach(() => {
   const msg = sessionStorage.getItem('toast');
   if (msg) {
@@ -27,6 +28,7 @@ router.afterEach(() => {
   }
 });
 
+// Move focus to the Login button when the modal opens (away from the X button)
 watch(sessionExpired, (expired) => {
   if (expired) {
     nextTick(() => {
@@ -40,76 +42,6 @@ function relogin() {
   authStore.logout();
   router.push('/login');
 }
-
-// ── TinyMCE layout-shift fix ──────────────────────────────────────────────────
-// TinyMCE appends .tox-tinymce-aux to <body> with inline style="position:relative"
-// and may reset it via JS. When position:relative, this div participates in
-// document flow → body grows taller/wider than 100vh → browser scrollbar appears
-// → viewport shrinks ~19px → layout shifts on first load (Ch00).
-//
-// Fix: use a MutationObserver to immediately force position:fixed whenever
-// TinyMCE adds or modifies the aux div, removing it from document flow permanently.
-// position:fixed elements cannot cause body overflow regardless of their size.
-
-let childObserver: MutationObserver | null = null;
-let attrObserver: MutationObserver | null = null;
-
-function fixToxAux(el: HTMLElement) {
-  // Force out of flow via JS (overrides inline style that CSS !important can't always beat
-  // when TinyMCE continuously resets via setAttribute)
-  el.style.setProperty('position', 'fixed', 'important');
-  el.style.setProperty('top', '0', 'important');
-  el.style.setProperty('left', '0', 'important');
-  el.style.setProperty('width', '0', 'important');
-  el.style.setProperty('height', '0', 'important');
-
-  // Watch for TinyMCE resetting the style attribute on this element
-  if (!el.dataset.toxFixed) {
-    el.dataset.toxFixed = '1';
-    const ao = new MutationObserver(() => fixToxAux(el));
-    ao.observe(el, { attributes: true, attributeFilter: ['style'] });
-    // Store reference for cleanup
-    (el as any).__toxObserver = ao;
-  }
-}
-
-function scanAndFix() {
-  document.querySelectorAll<HTMLElement>('.tox-tinymce-aux').forEach(fixToxAux);
-}
-
-onMounted(() => {
-  // Fix any already-present aux divs
-  scanAndFix();
-
-  // Watch for TinyMCE appending new aux divs to body
-  childObserver = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      m.addedNodes.forEach((node) => {
-        if (node instanceof HTMLElement) {
-          if (node.classList.contains('tox-tinymce-aux')) {
-            fixToxAux(node);
-          }
-          // Also check descendants
-          node.querySelectorAll<HTMLElement>('.tox-tinymce-aux').forEach(fixToxAux);
-        }
-      });
-    }
-  });
-  childObserver.observe(document.body, { childList: true, subtree: true });
-});
-
-onUnmounted(() => {
-  childObserver?.disconnect();
-  childObserver = null;
-  attrObserver?.disconnect();
-  attrObserver = null;
-  // Clean up per-element observers
-  document.querySelectorAll<HTMLElement>('.tox-tinymce-aux').forEach((el) => {
-    (el as any).__toxObserver?.disconnect();
-    delete (el as any).__toxObserver;
-    delete el.dataset.toxFixed;
-  });
-});
 </script>
 
 <template>
@@ -139,24 +71,6 @@ onUnmounted(() => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-html {
-  overflow-x: hidden;
-}
-
-body {
-  overflow-x: hidden;
-}
-
-/* TinyMCE .tox-tinymce-aux — CSS first-line defence.
-   The MutationObserver in <script> handles JS resets from TinyMCE. */
-.tox-tinymce-aux {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
 }
 
 .app-container {
