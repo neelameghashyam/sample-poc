@@ -114,9 +114,10 @@ watchEffect(() => {
 
 <template>
   <div ref="editorRoot" class="editor-root">
-    <!-- Back button -->
-    <div class="editor-back">
+    <!-- Top bar: back button + header inline -->
+    <div class="editor-topbar">
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">Back to TG Dashboard</Button>
+      <EditorHeader v-if="!store.loading && !store.error" class="editor-topbar-header" />
     </div>
 
     <!-- Loading skeleton -->
@@ -146,8 +147,6 @@ watchEffect(() => {
 
     <!-- Editor -->
     <template v-else>
-      <EditorHeader />
-
       <div class="editor-layout">
         <EditorStepper />
 
@@ -184,10 +183,15 @@ watchEffect(() => {
   color: var(--color-neutral-800);
 }
 
-.editor-back {
+.editor-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
+}
+
+.editor-topbar-header {
+  flex: 1;
+  min-width: 0;
 }
 
 .editor-error {
