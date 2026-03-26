@@ -148,12 +148,7 @@ watchEffect(() => {
     <!-- Editor -->
     <template v-else>
       <div class="editor-layout">
-        <div
-          class="editor-stepper-wrap"
-          :style="store.chapterNavCollapsed ? {} : { width: '220px' }"
-        >
-          <EditorStepper />
-        </div>
+        <EditorStepper />
 
         <main class="editor-main">
           <h1 class="editor-chapter-title">
@@ -212,13 +207,6 @@ watchEffect(() => {
   display: flex;
   align-items: flex-start;
   gap: 24px;
-  min-width: 0;
-}
-
-.editor-stepper-wrap {
-  flex-shrink: 0;
-  align-self: flex-start;
-  overflow: hidden;
 }
 
 .editor-main {
