@@ -10,9 +10,9 @@
  *
  * The user lands here by clicking a row in TestGuidelinesTable.
  */
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Button, Card, Skeleton, useToast } from 'upov-ui';
+import { Button, Skeleton, useToast } from 'upov-ui';
 import { editorApi } from '@/services/editor-api';
 
 const route  = useRoute();
@@ -26,6 +26,15 @@ const tgId = ref<number>(Number(route.params.id));
 const previewHtml  = ref<string | null>(null);
 const loading      = ref(false);
 const error        = ref<string | null>(null);
+
+// ── Split HTML into A4 pages on page-break markers ───────────────────────────
+const pages = computed(() => {
+  if (!previewHtml.value) return [];
+  return previewHtml.value
+    .split(/<br[^>]*page-break-before[^>]*>/gi)
+    .map(p => p.trim())
+    .filter(p => p.length > 0);
+});
 
 // ── Load preview ──────────────────────────────────────────────────────────────
 async function loadPreview() {
@@ -66,10 +75,7 @@ function backToDashboard() {
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">
         Back to TG Dashboard
       </Button>
-
       <span class="preview-topbar__title">Document Preview</span>
-
-      <!-- Spacer to balance the back button and keep title centered -->
       <div class="preview-topbar__spacer" />
     </div>
 
@@ -99,10 +105,15 @@ function backToDashboard() {
       </Button>
     </div>
 
-    <!-- Document HTML rendered inside a Card -->
-    <Card v-else-if="previewHtml" elevation="low" padding="none" class="preview-card">
-      <div class="preview-document" v-html="previewHtml" />
-    </Card>
+    <!-- A4 paginated document viewer -->
+    <div v-else-if="pages.length" class="doc-viewer">
+      <div
+        v-for="(page, index) in pages"
+        :key="index"
+        class="doc-page"
+        v-html="page"
+      />
+    </div>
 
     <!-- Empty fallback -->
     <div v-else class="preview-error">
@@ -134,7 +145,6 @@ function backToDashboard() {
   gap: 16px;
 }
 
-/* Centered title — flex trick: spacer on right mirrors the back button width */
 .preview-topbar__title {
   flex: 1;
   text-align: center;
@@ -144,10 +154,9 @@ function backToDashboard() {
   white-space: nowrap;
 }
 
-/* Spacer matches the back button to keep the title visually centered */
 .preview-topbar__spacer {
   flex: 0 0 auto;
-  width: 170px; /* approximate width of the back button */
+  width: 170px;
 }
 
 /* ── Loading skeleton ─────────────────────────────────────────────────────── */
@@ -175,7 +184,7 @@ function backToDashboard() {
   gap: 16px;
 }
 
-/* ── Error state ──────────────────────────────────────────────────────────── */
+/* ── Error / empty state ──────────────────────────────────────────────────── */
 .preview-error {
   display: flex;
   flex-direction: column;
@@ -187,67 +196,98 @@ function backToDashboard() {
   text-align: center;
 }
 
-/* ── Card wrapping the document ──────────────────────────────────────────── */
-.preview-card {
+/* ── Document viewer — grey canvas holding all pages ─────────────────────── */
+.doc-viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f0f0f0;
+  padding: 32px 24px;
+  border-radius: 8px;
+  gap: 32px;
   flex: 1;
 }
 
-/* ── Document HTML rendered by Java ──────────────────────────────────────── */
-.preview-document {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 48px 56px;
-  font-family: Georgia, serif;
+/* ── Single A4 page ───────────────────────────────────────────────────────── */
+.doc-page {
+  width: 794px;           /* A4 at 96 dpi */
+  min-height: 1123px;     /* A4 at 96 dpi */
+  background: #ffffff;
+  padding: 72px 80px;     /* ~2.54 cm margins */
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e2e2e2;
+  border-radius: 2px;
+
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 15px;
   line-height: 1.75;
-  color: var(--color-neutral-800, #1f2937);
+  color: #1f2937;
+
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
-:deep(.preview-document) h1,
-:deep(.preview-document) h2,
-:deep(.preview-document) h3,
-:deep(.preview-document) h4 {
+/* ── Styles applied to the injected HTML content ─────────────────────────── */
+.doc-page :deep(h1),
+.doc-page :deep(h2),
+.doc-page :deep(h3),
+.doc-page :deep(h4) {
   font-family: 'Figtree', sans-serif;
   font-weight: 600;
-  color: var(--color-primary-green-dark);
+  color: var(--color-primary-green-dark, #1c4240);
   margin: 1.4em 0 0.5em;
   line-height: 1.3;
 }
 
-:deep(.preview-document) p {
+.doc-page :deep(p) {
   margin: 0.75em 0;
 }
 
-:deep(.preview-document) table {
+.doc-page :deep(table) {
   width: 100%;
   border-collapse: collapse;
   margin: 1.25em 0;
   font-size: 14px;
 }
 
-:deep(.preview-document) th,
-:deep(.preview-document) td {
-  border: 1px solid var(--color-neutral-200, #e5e7eb);
+.doc-page :deep(th),
+.doc-page :deep(td) {
+  border: 1px solid #d1d5db;
   padding: 8px 12px;
   text-align: left;
   vertical-align: top;
 }
 
-:deep(.preview-document) th {
-  background: var(--color-neutral-50, #f9fafb);
+.doc-page :deep(th) {
+  background: #f9fafb;
   font-family: 'Figtree', sans-serif;
   font-weight: 600;
 }
 
-:deep(.preview-document) ul,
-:deep(.preview-document) ol {
+.doc-page :deep(ul),
+.doc-page :deep(ol) {
   padding-left: 1.5em;
   margin: 0.75em 0;
 }
 
-@media (max-width: 640px) {
-  .preview-document {
-    padding: 24px 20px;
+.doc-page :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Respect any leftover inline page-break hints from the API */
+.doc-page :deep(br[style*="page-break-before"]) {
+  display: block;
+  page-break-before: always;
+  break-before: page;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .doc-page {
+    width: 100%;
+    min-height: unset;
+    padding: 32px 24px;
   }
 
   .preview-topbar__spacer {
