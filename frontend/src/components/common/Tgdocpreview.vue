@@ -4,14 +4,9 @@
  *
  * Route: /test-guidelines/:id/preview
  *
- * Renders the Java doc-gen XHTML as real A4 pages.
- *
- * How it works:
- *  1. API returns full XHTML with <div class="SectionN"> per page (12 pages).
- *  2. We extract <body> content and split on each SectionN div.
- *  3. All `pt` units are converted to `px` (1pt = 1.3333px at 96dpi) so
- *     inline styles render at correct Word-equivalent sizes in the browser.
- *  4. Each converted chunk is rendered inside its own A4 .doc-page container.
+ * Renders the Java doc-gen HTML as real A4 pages.
+ * The API returns a single <div class="Section0"> wrapper with multiple
+ * page-break markers inside — we split on those to get individual pages.
  */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -26,63 +21,49 @@ const toast  = useToast();
 const tgId = ref<number>(Number(route.params.id));
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const previewHtml = ref<string | null>(null);
-const loading     = ref(false);
-const error       = ref<string | null>(null);
+const previewHtml  = ref<string | null>(null);
+const loading      = ref(false);
+const error        = ref<string | null>(null);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Extract only the <body> inner content from a full XHTML document string. */
+// ── Extract body content from full XHTML document ────────────────────────────
 function extractBody(html: string): string {
-  const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  return m ? m[1] : html;
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  return bodyMatch ? bodyMatch[1] : html;
 }
 
-/**
- * Convert all `Xpt` values in inline styles to `Xpx`.
- * The Java renderer uses pt units sized for Word/PDF (72dpi).
- * Browsers render at 96dpi, so: 1pt = 96/72 ≈ 1.3333px.
- */
-function convertPtToPx(html: string): string {
-  return html.replace(/([\d.]+)pt/g, (_match, val) => {
-    const px = Math.round(parseFloat(val) * 96 / 72 * 100) / 100;
-    return `${px}px`;
-  });
-}
-
-/**
- * Strip page-break and clear styles from SectionN wrappers —
- * we handle page separation ourselves via .doc-page containers.
- */
-function cleanSectionStyles(html: string): string {
-  return html
-    .replace(/page-break-before:\s*always/g, '')
-    .replace(/clear:\s*both;?\s*/g, '');
-}
-
-// ── Pages computed ────────────────────────────────────────────────────────────
-/**
- * Split the body HTML into one chunk per SectionN div,
- * convert pt→px, and strip redundant page-break styles.
- * Falls back to rendering everything as a single page if no sections found.
- */
-const pages = computed<string[]>(() => {
+// ── Split into pages on page-break markers ───────────────────────────────────
+//
+// WHY:  The Java API wraps the ENTIRE document in a single Section0 div.
+//       Page boundaries are expressed as:
+//         <br style='clear:both;page-break-before:always'/>
+//       Splitting on those gives us exactly one chunk per real page.
+//
+// NOTE: We do NOT hide those <br> tags in CSS — they are consumed by the
+//       split so they never appear in the rendered output.
+//
+const pages = computed(() => {
   if (!previewHtml.value) return [];
 
   const body = extractBody(previewHtml.value);
 
-  // Split just before each <div class="SectionN"> so every chunk owns its div
-  const raw = body
-    .split(/(?=<div\s+class="Section\d+")/)
+  // Match both page-break-before and page-break-after variants for robustness
+  const parts = body
+    .split(/<br[^>]*style[^>]*page-break-(before|after)\s*:\s*always[^>]*>/gi)
     .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .filter(p => p.length > 0)
+    // After the regex split, alternating capture-group strings ('before'/'after')
+    // may appear — drop them (they are not HTML content)
+    .filter(p => /[<\w]/.test(p));
 
-  const chunks = raw.length > 0 ? raw : [body];
+  if (import.meta.env.DEV) {
+    console.log('[TgDocPreview] total pages detected:', parts.length);
+  }
 
-  return chunks.map(chunk => cleanSectionStyles(convertPtToPx(chunk)));
+  // Fallback: render as single page if no breaks found
+  return parts.length > 0 ? parts : [body];
 });
 
-// ── API ───────────────────────────────────────────────────────────────────────
+// ── Load preview ──────────────────────────────────────────────────────────────
 async function loadPreview() {
   if (!tgId.value) return;
 
@@ -104,6 +85,7 @@ async function loadPreview() {
   }
 }
 
+// Initial load
 onMounted(loadPreview);
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -124,31 +106,29 @@ function backToDashboard() {
       <div class="preview-topbar__spacer" />
     </div>
 
-    <!-- Loading — looks like 2 A4 sheets loading -->
-    <div v-if="loading" class="doc-viewer">
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="skel">
       <div class="skel-page">
-        <Skeleton width="50%" height="24px" />
-        <Skeleton width="70%" height="14px" />
+        <Skeleton width="40%" height="22px" />
+        <Skeleton width="60%" height="14px" />
         <Skeleton width="100%" height="14px" />
         <Skeleton width="100%" height="14px" />
-        <Skeleton width="85%"  height="14px" />
+        <Skeleton width="80%"  height="14px" />
         <Skeleton width="100%" height="14px" />
-        <Skeleton width="60%"  height="14px" />
-        <Skeleton width="100%" height="14px" />
-        <Skeleton width="90%"  height="14px" />
+        <Skeleton width="55%"  height="14px" />
       </div>
       <div class="skel-page">
         <Skeleton width="100%" height="14px" />
         <Skeleton width="100%" height="14px" />
-        <Skeleton width="75%"  height="14px" />
+        <Skeleton width="70%"  height="14px" />
         <Skeleton width="100%" height="14px" />
-        <Skeleton width="55%"  height="14px" />
+        <Skeleton width="90%"  height="14px" />
         <Skeleton width="100%" height="14px" />
-        <Skeleton width="80%"  height="14px" />
+        <Skeleton width="50%"  height="14px" />
       </div>
     </div>
 
-    <!-- Error -->
+    <!-- Error state -->
     <div v-else-if="error" class="preview-error">
       <p>{{ error }}</p>
       <Button type="tertiary" icon-left="refresh" @click="loadPreview">
@@ -156,7 +136,7 @@ function backToDashboard() {
       </Button>
     </div>
 
-    <!-- Document: one .doc-page per SectionN div -->
+    <!-- A4 paginated document viewer — one .doc-page per page-break section -->
     <div v-else-if="pages.length" class="doc-viewer">
       <div
         v-for="(page, index) in pages"
@@ -179,7 +159,7 @@ function backToDashboard() {
 .preview-root *, .preview-root *::before, .preview-root *::after { box-sizing: border-box; }
 .preview-root h1, .preview-root h2, .preview-root h3, .preview-root p { margin: 0; padding: 0; }
 
-/* ── Root ─────────────────────────────────────────────────────────────────── */
+/* ── Root shell ───────────────────────────────────────────────────────────── */
 .preview-root {
   font-family: 'Figtree', sans-serif;
   min-height: 100%;
@@ -211,33 +191,32 @@ function backToDashboard() {
   width: 170px;
 }
 
-/* ── Grey canvas (shared by skeleton + real pages) ────────────────────────── */
-.doc-viewer {
+/* ── Loading skeleton — looks like 2 A4 pages loading ────────────────────── */
+.skel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #e8e8e8;
-  padding: 40px 24px;
+  background: #f0f0f0;
+  padding: 32px 24px;
   border-radius: 8px;
-  gap: 40px;   /* white gap between sheets */
+  gap: 32px;
   flex: 1;
 }
 
-/* ── Skeleton page shape ──────────────────────────────────────────────────── */
 .skel-page {
   width: 794px;
-  min-height: 500px;
+  min-height: 400px;
   background: #fff;
-  border: 1px solid #ddd;
+  border: 1px solid #e2e2e2;
   border-radius: 2px;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.10);
-  padding: 56px 64px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+  padding: 48px 56px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
-/* ── Error / empty ────────────────────────────────────────────────────────── */
+/* ── Error / empty state ──────────────────────────────────────────────────── */
 .preview-error {
   display: flex;
   flex-direction: column;
@@ -249,56 +228,80 @@ function backToDashboard() {
   text-align: center;
 }
 
-/* ── A4 page ──────────────────────────────────────────────────────────────── */
+/* ── Grey canvas that holds all A4 pages ─────────────────────────────────── */
+.doc-viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f0f0f0;
+  padding: 32px 24px;
+  border-radius: 8px;
+  gap: 32px;       /* visible gap between pages */
+  flex: 1;
+}
+
+/* ── Single A4 page ───────────────────────────────────────────────────────── */
 /*
- * A4 at 96dpi = 794 × 1123px (matches 595.3pt × 841.9pt from body style).
- * font-size is NOT set here — we let the Java inline styles control it
- * (they already use 10pt → 13.33px after our pt→px conversion).
- * overflow:hidden clips anything that bleeds past the page edge.
+ * A4 at 96 dpi = 794 × 1123 px
+ * The Java API uses pt units internally (595.3pt × 841.9pt)
+ * We set font-size:10pt as baseline so pt values in inline styles scale correctly.
  */
 .doc-page {
   width: 794px;
   min-height: 1123px;
   background: #ffffff;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.13);
-  border: 1px solid #d8d8d8;
+  padding: 56.7px;        /* 1.5cm ≈ 56.7px at 96dpi — matches Word default */
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e0e0e0;
   border-radius: 2px;
+
+  /* Base font matches the Java-generated content */
+  font-family: Arial, 'Times New Roman', sans-serif;
+  font-size: 10pt;
+  line-height: 1.5;
+  color: #000;
+
   overflow: hidden;
-
-  /* The Java HTML sets its own margins via inline styles on child elements.
-     We add a small safety padding so nothing touches the edge. */
-  padding: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
-/* ── Deep: normalize injected content ────────────────────────────────────── */
+/* ── Deep styles for injected HTML ───────────────────────────────────────── */
 
-/* Images should never overflow the page */
-.doc-page :deep(img) {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Tables use the Java-supplied widths; just prevent overflow */
+/* Tables */
 .doc-page :deep(table) {
   border-collapse: collapse;
   max-width: 100%;
 }
 
-/* Strip any remaining page-break directives inside pages */
-.doc-page :deep([class^="Section"]) {
-  page-break-before: unset !important;
+.doc-page :deep(td),
+.doc-page :deep(th) {
+  vertical-align: top;
 }
 
-/* Hide leftover <br page-break> markers (already split into pages) */
-.doc-page :deep(br[style*="page-break-before"]) {
-  display: none;
+/* Images */
+.doc-page :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
-/* Preserve Word-like paragraph spacing from inline styles */
+/* Paragraphs — preserve inline margin/padding from Java styles */
 .doc-page :deep(p) {
   margin: 0;
   padding: 0;
 }
+
+/* Strip the SectionN wrapper's page-break styles — layout is handled by .doc-page */
+.doc-page :deep([class^="Section"]) {
+  page-break-before: unset !important;
+  clear: unset !important;
+}
+
+/*
+ * ⚠️  Do NOT add a rule hiding br[page-break-before:always] here.
+ *     Those <br> tags are consumed by the JS split — they never reach the DOM.
+ *     Adding display:none would be harmless but misleading.
+ */
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
@@ -306,10 +309,15 @@ function backToDashboard() {
   .skel-page {
     width: 100%;
     min-height: unset;
-    overflow-x: auto;
+    padding: 24px 16px;
   }
 
-  .preview-topbar__spacer { display: none; }
-  .preview-topbar__title  { text-align: left; }
+  .preview-topbar__spacer {
+    display: none;
+  }
+
+  .preview-topbar__title {
+    text-align: left;
+  }
 }
 </style>
