@@ -9,9 +9,8 @@
  *      → Java API  (http://<JAVA_API_BASE>/doc-gen-preview/:id?lang=en)
  *
  * The user lands here by clicking a row in TestGuidelinesTable.
- * The Edit button navigates to /admin/test-guidelines/:id (the editor).
  */
-import { ref, watch, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Button, Card, Skeleton, useToast } from 'upov-ui';
 import { editorApi } from '@/services/editor-api';
@@ -27,15 +26,6 @@ const tgId = ref<number>(Number(route.params.id));
 const previewHtml  = ref<string | null>(null);
 const loading      = ref(false);
 const error        = ref<string | null>(null);
-const selectedLang = ref('en');
-
-const languages = [
-  { value: 'en', label: 'English' },
-  { value: 'fr', label: 'Français' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'es', label: 'Español' },
-  { value: 'zh', label: '中文' },
-];
 
 // ── Load preview ──────────────────────────────────────────────────────────────
 async function loadPreview() {
@@ -46,7 +36,7 @@ async function loadPreview() {
   previewHtml.value = null;
 
   try {
-    previewHtml.value = await editorApi.docGenPreview(tgId.value, selectedLang.value);
+    previewHtml.value = await editorApi.docGenPreview(tgId.value, 'en');
   } catch (err: any) {
     const message =
       err?.response?.data?.error?.message ||
@@ -59,9 +49,6 @@ async function loadPreview() {
   }
 }
 
-// Reload on language change
-watch(selectedLang, loadPreview);
-
 // Initial load
 onMounted(loadPreview);
 
@@ -69,58 +56,24 @@ onMounted(loadPreview);
 function backToDashboard() {
   router.push({ name: 'admin-test-guidelines' });
 }
-
-function goToEditor() {
-  router.push(`/admin/test-guidelines/${tgId.value}`);
-}
 </script>
 
 <template>
   <div class="preview-root">
 
-    <!-- Top bar — mirrors .editor-topbar pattern from EditorView -->
+    <!-- Top bar -->
     <div class="preview-topbar">
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">
         Back to TG Dashboard
       </Button>
 
-      <div class="preview-topbar__meta">
-        <span class="preview-topbar__title">Document Preview</span>
-        <span class="preview-topbar__id">#{{ tgId }}</span>
-      </div>
+      <span class="preview-topbar__title">Document Preview</span>
 
-      <div class="preview-topbar__actions">
-        <!-- Language selector -->
-        <select
-          v-model="selectedLang"
-          class="preview-lang-select"
-          :disabled="loading"
-          aria-label="Preview language"
-        >
-          <option v-for="lang in languages" :key="lang.value" :value="lang.value">
-            {{ lang.label }}
-          </option>
-        </select>
-
-        <!-- Refresh — tertiary icon button -->
-        <Button
-          type="tertiary"
-          icon-left="refresh"
-          :disabled="loading"
-          :loading="loading"
-          @click="loadPreview"
-        >
-          Refresh
-        </Button>
-
-        <!-- Edit — primary action, same as EditorHeader submit -->
-        <Button type="primary" icon-left="pencil" @click="goToEditor">
-          Edit
-        </Button>
-      </div>
+      <!-- Spacer to balance the back button and keep title centered -->
+      <div class="preview-topbar__spacer" />
     </div>
 
-    <!-- Loading skeleton — mirrors .skel pattern from EditorView -->
+    <!-- Loading skeleton -->
     <div v-if="loading" class="skel">
       <div class="skel-header">
         <Skeleton width="35%" height="20px" />
@@ -138,7 +91,7 @@ function goToEditor() {
       </div>
     </div>
 
-    <!-- Error state — mirrors .editor-error pattern from EditorView -->
+    <!-- Error state -->
     <div v-else-if="error" class="preview-error">
       <p>{{ error }}</p>
       <Button type="tertiary" icon-left="refresh" @click="loadPreview">
@@ -146,7 +99,7 @@ function goToEditor() {
       </Button>
     </div>
 
-    <!-- Document HTML rendered inside a Card — mirrors EditorHeader Card usage -->
+    <!-- Document HTML rendered inside a Card -->
     <Card v-else-if="previewHtml" elevation="low" padding="none" class="preview-card">
       <div class="preview-document" v-html="previewHtml" />
     </Card>
@@ -160,7 +113,7 @@ function goToEditor() {
 </template>
 
 <style scoped>
-/* ── Reset (same pattern as EditorView) ───────────────────────────────────── */
+/* ── Reset ────────────────────────────────────────────────────────────────── */
 .preview-root *, .preview-root *::before, .preview-root *::after { box-sizing: border-box; }
 .preview-root h1, .preview-root h2, .preview-root h3, .preview-root p { margin: 0; padding: 0; }
 
@@ -174,70 +127,30 @@ function goToEditor() {
   color: var(--color-neutral-800);
 }
 
-/* ── Top bar — mirrors .editor-topbar ─────────────────────────────────────── */
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
 .preview-topbar {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
-.preview-topbar__meta {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
+/* Centered title — flex trick: spacer on right mirrors the back button width */
 .preview-topbar__title {
-  font-size: 16px;
+  flex: 1;
+  text-align: center;
+  font-size: 18px;
   font-weight: 700;
   color: var(--color-primary-green-dark);
   white-space: nowrap;
 }
 
-.preview-topbar__id {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-neutral-500);
-  white-space: nowrap;
+/* Spacer matches the back button to keep the title visually centered */
+.preview-topbar__spacer {
+  flex: 0 0 auto;
+  width: 170px; /* approximate width of the back button */
 }
 
-.preview-topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* ── Language select — styled to sit alongside upov-ui Buttons ───────────── */
-.preview-lang-select {
-  height: 36px;
-  padding: 0 10px;
-  font-family: 'Figtree', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid var(--color-neutral-300, #d1d5db);
-  border-radius: 6px;
-  background: var(--color-neutral-0, #fff);
-  color: var(--color-neutral-800, #1f2937);
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.preview-lang-select:focus {
-  border-color: var(--color-primary-green-dark);
-  box-shadow: 0 0 0 2px rgba(28, 66, 64, 0.12);
-}
-
-.preview-lang-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ── Loading skeleton — mirrors .skel from EditorView ─────────────────────── */
+/* ── Loading skeleton ─────────────────────────────────────────────────────── */
 .skel {
   display: flex;
   flex-direction: column;
@@ -262,7 +175,7 @@ function goToEditor() {
   gap: 16px;
 }
 
-/* ── Error state — mirrors .editor-error from EditorView ─────────────────── */
+/* ── Error state ──────────────────────────────────────────────────────────── */
 .preview-error {
   display: flex;
   flex-direction: column;
@@ -279,7 +192,7 @@ function goToEditor() {
   flex: 1;
 }
 
-/* ── Document HTML rendered by Java ─────────────────────────────────────── */
+/* ── Document HTML rendered by Java ──────────────────────────────────────── */
 .preview-document {
   max-width: 860px;
   margin: 0 auto;
@@ -335,6 +248,14 @@ function goToEditor() {
 @media (max-width: 640px) {
   .preview-document {
     padding: 24px 20px;
+  }
+
+  .preview-topbar__spacer {
+    display: none;
+  }
+
+  .preview-topbar__title {
+    text-align: left;
   }
 }
 </style>
