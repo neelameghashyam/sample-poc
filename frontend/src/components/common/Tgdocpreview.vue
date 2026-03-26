@@ -4,17 +4,17 @@
  *
  * Route: /test-guidelines/:id/preview
  *
- * Renders Java doc-gen HTML as real A4 pages using a height-based
- * layout engine — no dependency on page-break markers OR Section divs.
+ * Renders the Java doc-gen HTML via a sandboxed iframe so the browser's
+ * own layout engine handles pagination — no manual splitting, no height
+ * measurement, no page-count mismatch.
  *
- * PAGINATION STRATEGY (3-tier, most reliable first):
- *   1. PRIMARY   → page-break-before:always markers (fast path when present)
- *   2. SECONDARY → Height-based layout engine (real Word-like pagination)
- *   3. FALLBACK  → Render as single scrollable page
- *
- * TOC: extracted from the HTML and rendered as a floating side-panel navigator.
+ * Why iframe?
+ *  • @page / page-break CSS is honoured by the browser natively
+ *  • pt units resolve correctly inside the iframe's own document context
+ *  • Fonts & images are fully loaded before layout is computed
+ *  • Matches Word output far more closely than any JS-based split
  */
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Button, Skeleton, useToast } from 'upov-ui';
 import { editorApi } from '@/services/editor-api';
@@ -26,197 +26,163 @@ const toast  = useToast();
 // ── Route param ───────────────────────────────────────────────────────────────
 const tgId = ref<number>(Number(route.params.id));
 
-// ── A4 at 96 dpi ─────────────────────────────────────────────────────────────
-const PAGE_WIDTH_PX  = 794;
-const PAGE_HEIGHT_PX = 1123;
-const PAGE_PADDING   = 56.7;   // 1.5 cm — matches Word default margin
-const CONTENT_HEIGHT = PAGE_HEIGHT_PX - PAGE_PADDING * 2;
-
 // ── State ─────────────────────────────────────────────────────────────────────
-const pages      = ref<string[]>([]);
-const loading    = ref(false);
-const paginating = ref(false);
-const error      = ref<string | null>(null);
-const tocItems   = ref<{ id: string; label: string; level: number }[]>([]);
-const tocOpen    = ref(false);
+const previewHtml  = ref<string | null>(null);
+const loading      = ref(false);
+const error        = ref<string | null>(null);
+const iframeRef    = ref<HTMLIFrameElement | null>(null);
+const iframeHeight = ref(1200); // px — grows after iframe load event
 
-// ── Hidden off-screen measurement container ───────────────────────────────────
-let measureEl: HTMLDivElement | null = null;
+// ── Styles injected into the iframe document ──────────────────────────────────
+//
+// These are appended to whatever <head> the Java API returns (or prepended if
+// the response is a fragment).  They set up:
+//   • @page  — A4 size + margins (used by browser print engine)
+//   • body   — 794 px wide (A4 @ 96 dpi), correct base font
+//   • visual page-break dividers rendered on screen via ::before pseudo
+//
+const INJECTED_STYLES = `
+<style id="__preview-overrides__">
+  /* ── Page geometry ─────────────────────────────────────────────── */
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
 
-function getMeasureContainer(): HTMLDivElement {
-  if (measureEl) return measureEl;
-  measureEl = document.createElement('div');
-  measureEl.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: -9999px;
-    width: ${PAGE_WIDTH_PX - PAGE_PADDING * 2}px;
+  /* ── Base document ─────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    background: #f0f0f0;
+  }
+
+  body {
     font-family: Arial, 'Times New Roman', sans-serif;
     font-size: 10pt;
     line-height: 1.5;
-    visibility: hidden;
-    pointer-events: none;
-    z-index: -1;
-  `;
-  document.body.appendChild(measureEl);
-  return measureEl;
-}
+    color: #000;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function extractBody(html: string): string {
-  const match = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  return match ? match[1] : html;
-}
-
-function isPageBreakBr(el: HTMLElement): boolean {
-  return (
-    el.tagName === 'BR' &&
-    (el.getAttribute('style') ?? '').includes('page-break')
-  );
-}
-
-// ── TOC extraction ────────────────────────────────────────────────────────────
-function extractToc(body: string) {
-  const matches = [
-    ...body.matchAll(
-      /<p[^>]*class="TOC-(\d+)"[^>]*>[\s\S]*?<a[^>]*href="#([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi
-    ),
-  ];
-  tocItems.value = matches.map(m => ({
-    level : parseInt(m[1], 10),
-    id    : m[2],
-    label : m[3].replace(/<[^>]+>/g, '').trim(),
-  }));
-}
-
-// ── TIER 1: page-break split (fast path) ─────────────────────────────────────
-function splitByPageBreaks(body: string): string[] | null {
-  const parts = body
-    .split(/<br[^>]*style[^>]*page-break-(before|after)\s*:\s*always[^>]*>/gi)
-    .map(p => p.trim())
-    .filter(p => /[<\w]/.test(p) && p.length > 0);
-
-  return parts.length > 1 ? parts : null;
-}
-
-// ── TIER 2: height-based layout engine ───────────────────────────────────────
-// Mirrors what Word does: measure each DOM block, fill pages by height budget.
-async function paginateByHeight(body: string): Promise<string[]> {
-  const container = getMeasureContainer();
-
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = body;
-  container.innerHTML = '';
-  container.appendChild(wrapper);
-
-  // Wait for layout — fonts, images, table cells all need 2 frames to settle
-  await nextTick();
-  await new Promise(r => requestAnimationFrame(r));
-  await new Promise(r => requestAnimationFrame(r));
-
-  const children = Array.from(wrapper.childNodes);
-
-  const pageChunks: string[] = [];
-  let currentHtml            = '';
-  let currentHeight          = 0;
-
-  const flushPage = () => {
-    if (currentHtml.trim()) pageChunks.push(currentHtml);
-    currentHtml   = '';
-    currentHeight = 0;
-  };
-
-  for (const node of children) {
-    // Skip pure whitespace text nodes
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (!(node as Text).textContent?.trim()) continue;
-    }
-
-    const el = node as HTMLElement;
-
-    // Explicit page-break markers → force a new page
-    if (isPageBreakBr(el)) {
-      flushPage();
-      continue;
-    }
-
-    const elHeight = el.getBoundingClientRect?.()?.height ?? 0;
-
-    // Oversized element (e.g. giant table) → split by its own children
-    if (elHeight > CONTENT_HEIGHT && el.tagName === 'TABLE') {
-      const thead = el.querySelector('thead')?.outerHTML ?? '';
-      const rows  = Array.from(el.querySelectorAll('tbody tr, tr'));
-
-      for (const row of rows) {
-        container.innerHTML = `<table>${thead}<tbody></tbody></table>`;
-        const tbody = container.querySelector('tbody')!;
-        tbody.appendChild((row as HTMLElement).cloneNode(true));
-        await new Promise(r => requestAnimationFrame(r));
-        const rowH = container.firstElementChild!.getBoundingClientRect().height;
-
-        if (currentHeight + rowH > CONTENT_HEIGHT) flushPage();
-        currentHtml   += `<table>${thead}<tbody>${(row as HTMLElement).outerHTML}</tbody></table>`;
-        currentHeight += rowH;
-      }
-      continue;
-    }
-
-    // Normal block — does it fit on the current page?
-    if (currentHeight + elHeight > CONTENT_HEIGHT && currentHtml) {
-      flushPage();
-    }
-
-    currentHtml   += (el as HTMLElement).outerHTML ?? (node as Text).textContent ?? '';
-    currentHeight += elHeight;
+    /* A4 @ 96 dpi with 1.5 cm margins (≈ 56.7 px each side) */
+    width: 794px;
+    margin: 32px auto;
+    padding: 56.7px;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
   }
 
-  flushPage();
-  container.innerHTML = '';
+  /* ── Tables ────────────────────────────────────────────────────── */
+  table  { border-collapse: collapse; max-width: 100%; }
+  td, th { vertical-align: top; }
 
-  if (import.meta.env.DEV) {
-    console.log('[DocPreview] height-based pages:', pageChunks.length);
+  /* ── Images ────────────────────────────────────────────────────── */
+  img { max-width: 100%; height: auto; }
+
+  /* ── Paragraphs — honour inline pt margin/padding from Java ────── */
+  p { margin: 0; padding: 0; }
+
+  /* ── Page-break markers → visible dividers on screen ───────────── */
+  /*
+   * The Java API emits:
+   *   <br style="clear:both; page-break-before:always" />
+   * We render those as visual horizontal rules so the user can see
+   * where each page starts, without any JS splitting.
+   */
+  br[style*="page-break-before"],
+  br[style*="page-break-after"] {
+    display: block;
+    height: 0;
+    margin: 32px -56.7px;        /* bleed to body edges */
+    border: none;
+    border-top: 2px dashed #d0d0d0;
+    position: relative;
   }
 
-  return pageChunks.length > 0 ? pageChunks : [body];
-}
+  br[style*="page-break-before"]::after,
+  br[style*="page-break-after"]::after {
+    content: 'page break';
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #f0f0f0;
+    color: #aaa;
+    font-size: 9px;
+    font-family: Arial, sans-serif;
+    padding: 0 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
 
-// ── Master paginate ───────────────────────────────────────────────────────────
-async function paginate(html: string) {
-  paginating.value = true;
-  const body = extractBody(html);
+  /* ── Strip Section wrapper's own page-break declarations ───────── */
+  [class^="Section"] {
+    page-break-before: unset !important;
+    clear: unset !important;
+  }
+</style>
+`;
 
-  extractToc(body);
+// ── Build the full srcdoc string fed to the iframe ────────────────────────────
+//
+// Strategy:
+//   1. If the API returned a full XHTML/HTML document → inject styles into <head>
+//   2. If the API returned a fragment               → wrap in a minimal HTML shell
+//
+const framedHtml = computed<string>(() => {
+  if (!previewHtml.value) return '';
+
+  const html = previewHtml.value;
+
+  // Full document — splice our overrides just before </head>
+  if (/<\/head>/i.test(html)) {
+    return html.replace(/<\/head>/i, `${INJECTED_STYLES}</head>`);
+  }
+
+  // Fragment — build a minimal wrapper
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  ${INJECTED_STYLES}
+</head>
+<body>${html}</body>
+</html>`;
+});
+
+// ── Auto-resize iframe to its content height ──────────────────────────────────
+//
+// Called on the iframe's load event.  We read scrollHeight from the iframe's
+// document body and update our reactive height — this avoids a fixed-height
+// clip while also avoiding a scrollbar inside the frame.
+//
+function onIframeLoad() {
+  const frame = iframeRef.value;
+  if (!frame) return;
 
   try {
-    // Tier 1 — fast path
-    const byBreaks = splitByPageBreaks(body);
-    if (byBreaks) {
-      if (import.meta.env.DEV) console.log('[DocPreview] page-break pages:', byBreaks.length);
-      pages.value = byBreaks;
-      return;
+    const body = frame.contentDocument?.body;
+    if (body) {
+      // Add a small bottom buffer so the last page's shadow is fully visible
+      iframeHeight.value = body.scrollHeight + 64;
     }
-
-    // Tier 2 — layout engine
-    pages.value = await paginateByHeight(body);
-  } catch (e) {
-    console.error('[DocPreview] pagination error, single-page fallback:', e);
-    pages.value = [body];
-  } finally {
-    paginating.value = false;
+  } catch {
+    // Cross-origin guard — shouldn't happen with srcdoc but be safe
   }
 }
 
 // ── Load preview ──────────────────────────────────────────────────────────────
 async function loadPreview() {
   if (!tgId.value) return;
-  loading.value = true;
-  error.value   = null;
-  pages.value   = [];
+
+  loading.value     = true;
+  error.value       = null;
+  previewHtml.value = null;
+  iframeHeight.value = 1200;
 
   try {
-    const html = await editorApi.docGenPreview(tgId.value, 'en');
-    await nextTick();
-    await paginate(html);
+    previewHtml.value = await editorApi.docGenPreview(tgId.value, 'en');
   } catch (err: any) {
     const message =
       err?.response?.data?.error?.message ||
@@ -229,18 +195,12 @@ async function loadPreview() {
   }
 }
 
-// ── TOC navigation ────────────────────────────────────────────────────────────
-function scrollToAnchor(id: string) {
-  tocOpen.value = false;
-  const el = document.querySelector(`[name="${id}"]`) ?? document.getElementById(id);
-  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+onMounted(loadPreview);
 
+// ── Navigation ────────────────────────────────────────────────────────────────
 function backToDashboard() {
   router.push({ name: 'admin-test-guidelines' });
 }
-
-onMounted(loadPreview);
 </script>
 
 <template>
@@ -251,48 +211,12 @@ onMounted(loadPreview);
       <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">
         Back to TG Dashboard
       </Button>
-
       <span class="preview-topbar__title">Document Preview</span>
-
-      <div class="preview-topbar__actions">
-        <Button
-          v-if="tocItems.length"
-          type="tertiary"
-          icon-left="list"
-          @click="tocOpen = !tocOpen"
-        >
-          Contents
-        </Button>
-        <span v-if="pages.length > 1" class="page-count-badge">
-          {{ pages.length }} pages
-        </span>
-      </div>
+      <div class="preview-topbar__spacer" />
     </div>
 
-    <!-- TOC floating panel -->
-    <Transition name="toc-slide">
-      <div v-if="tocOpen && tocItems.length" class="toc-panel">
-        <div class="toc-panel__header">
-          <span>Table of Contents</span>
-          <button class="toc-panel__close" @click="tocOpen = false">✕</button>
-        </div>
-        <nav class="toc-panel__nav">
-          <button
-            v-for="item in tocItems"
-            :key="item.id"
-            class="toc-item"
-            :class="`toc-item--level-${item.level}`"
-            @click="scrollToAnchor(item.id)"
-          >
-            {{ item.label }}
-          </button>
-        </nav>
-      </div>
-    </Transition>
-
     <!-- Loading skeleton -->
-    <div v-if="loading || paginating" class="skel">
-      <p v-if="paginating" class="skel__label">Calculating page layout…</p>
+    <div v-if="loading" class="skel">
       <div class="skel-page">
         <Skeleton width="40%" height="22px" />
         <Skeleton width="60%" height="14px" />
@@ -308,6 +232,7 @@ onMounted(loadPreview);
         <Skeleton width="70%"  height="14px" />
         <Skeleton width="100%" height="14px" />
         <Skeleton width="90%"  height="14px" />
+        <Skeleton width="100%" height="14px" />
         <Skeleton width="50%"  height="14px" />
       </div>
     </div>
@@ -315,19 +240,31 @@ onMounted(loadPreview);
     <!-- Error state -->
     <div v-else-if="error" class="preview-error">
       <p>{{ error }}</p>
-      <Button type="tertiary" icon-left="refresh" @click="loadPreview">Try again</Button>
+      <Button type="tertiary" icon-left="refresh" @click="loadPreview">
+        Try again
+      </Button>
     </div>
 
-    <!-- A4 paginated document -->
-    <div v-else-if="pages.length" class="doc-viewer">
-      <div
-        v-for="(page, index) in pages"
-        :key="index"
-        class="doc-page"
-      >
-        <div class="doc-page__content" v-html="page" />
-        <div class="doc-page__footer">{{ index + 1 }} / {{ pages.length }}</div>
-      </div>
+    <!--
+      ── iframe document viewer ─────────────────────────────────────────────
+      The browser's own layout engine renders the full document.
+      No JS splitting, no height measurement — just real CSS pagination.
+
+      • srcdoc feeds the full HTML + injected styles
+      • @load auto-sizes the frame to content height (no inner scroll bar)
+      • sandbox="allow-same-origin" lets us read scrollHeight; scripts are
+        intentionally excluded (doc content needs no JS)
+    -->
+    <div v-else-if="framedHtml" class="doc-viewer">
+      <iframe
+        ref="iframeRef"
+        class="doc-frame"
+        :srcdoc="framedHtml"
+        :style="{ height: iframeHeight + 'px' }"
+        sandbox="allow-same-origin"
+        title="Document preview"
+        @load="onIframeLoad"
+      />
     </div>
 
     <!-- Empty fallback -->
@@ -339,9 +276,11 @@ onMounted(loadPreview);
 </template>
 
 <style scoped>
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
 .preview-root *, .preview-root *::before, .preview-root *::after { box-sizing: border-box; }
 .preview-root h1, .preview-root h2, .preview-root h3, .preview-root p { margin: 0; padding: 0; }
 
+/* ── Root shell ────────────────────────────────────────────────────────────── */
 .preview-root {
   font-family: 'Figtree', sans-serif;
   min-height: 100%;
@@ -349,10 +288,9 @@ onMounted(loadPreview);
   flex-direction: column;
   gap: 24px;
   color: var(--color-neutral-800);
-  position: relative;
 }
 
-/* ── Top bar ──────────────────────────────────────────────────────────────── */
+/* ── Top bar ───────────────────────────────────────────────────────────────── */
 .preview-topbar {
   display: flex;
   align-items: center;
@@ -369,94 +307,12 @@ onMounted(loadPreview);
   white-space: nowrap;
 }
 
-.preview-topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 170px;
-  justify-content: flex-end;
+.preview-topbar__spacer {
+  flex: 0 0 auto;
+  width: 170px;
 }
 
-.page-count-badge {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-neutral-600);
-  background: var(--color-neutral-100);
-  border: 1px solid var(--color-neutral-200);
-  border-radius: 999px;
-  padding: 2px 10px;
-  white-space: nowrap;
-}
-
-/* ── TOC panel ────────────────────────────────────────────────────────────── */
-.toc-panel {
-  position: fixed;
-  top: 80px;
-  right: 24px;
-  width: 280px;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-}
-
-.toc-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  border-bottom: 1px solid #eee;
-  flex-shrink: 0;
-}
-
-.toc-panel__close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--color-neutral-500);
-  padding: 0;
-  line-height: 1;
-}
-
-.toc-panel__nav {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0;
-}
-
-.toc-item {
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--color-neutral-700);
-  padding: 6px 16px;
-  transition: background 0.15s;
-}
-
-.toc-item:hover {
-  background: var(--color-neutral-50);
-  color: var(--color-primary-green-dark);
-}
-
-.toc-item--level-1 { padding-left: 16px; font-weight: 600; }
-.toc-item--level-2 { padding-left: 28px; }
-.toc-item--level-3 { padding-left: 40px; font-size: 12px; color: var(--color-neutral-500); }
-
-.toc-slide-enter-active, .toc-slide-leave-active { transition: opacity 0.2s, transform 0.2s; }
-.toc-slide-enter-from, .toc-slide-leave-to { opacity: 0; transform: translateX(12px); }
-
-/* ── Loading skeleton ─────────────────────────────────────────────────────── */
+/* ── Loading skeleton — two A4 outlines ────────────────────────────────────── */
 .skel {
   display: flex;
   flex-direction: column;
@@ -466,12 +322,6 @@ onMounted(loadPreview);
   border-radius: 8px;
   gap: 32px;
   flex: 1;
-}
-
-.skel__label {
-  font-size: 13px;
-  color: var(--color-neutral-500);
-  font-style: italic;
 }
 
 .skel-page {
@@ -487,7 +337,7 @@ onMounted(loadPreview);
   gap: 18px;
 }
 
-/* ── Error / empty ────────────────────────────────────────────────────────── */
+/* ── Error / empty state ───────────────────────────────────────────────────── */
 .preview-error {
   display: flex;
   flex-direction: column;
@@ -499,83 +349,50 @@ onMounted(loadPreview);
   text-align: center;
 }
 
-/* ── Grey canvas ──────────────────────────────────────────────────────────── */
+/* ── Grey canvas wrapping the iframe ──────────────────────────────────────── */
 .doc-viewer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   background: #f0f0f0;
   padding: 32px 24px;
   border-radius: 8px;
-  gap: 32px;
   flex: 1;
-}
 
-/* ── A4 page shell ────────────────────────────────────────────────────────── */
-.doc-page {
-  width: 794px;
-  min-height: 1123px;
-  background: #ffffff;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e0e0e0;
-  border-radius: 2px;
+  /* Centre the iframe; let it overflow horizontally on small screens */
+  overflow-x: auto;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  justify-content: center;
 }
 
-/* ── Page content area ────────────────────────────────────────────────────── */
-.doc-page__content {
-  flex: 1;
-  padding: 56.7px;
-  font-family: Arial, 'Times New Roman', sans-serif;
-  font-size: 10pt;
-  line-height: 1.5;
-  color: #000;
-  overflow: hidden;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
-/* ── Page number footer ───────────────────────────────────────────────────── */
-.doc-page__footer {
-  flex-shrink: 0;
-  text-align: center;
-  font-size: 9pt;
-  color: #aaa;
-  padding: 6px 0 10px;
-  border-top: 1px solid #eee;
-  font-family: Arial, sans-serif;
-}
-
-/* ── Deep styles for injected HTML ───────────────────────────────────────── */
-.doc-page__content :deep(table) { border-collapse: collapse; max-width: 100%; }
-.doc-page__content :deep(td),
-.doc-page__content :deep(th)   { vertical-align: top; }
-.doc-page__content :deep(img)  { max-width: 100%; height: auto; }
-.doc-page__content :deep(p)    { margin: 0; padding: 0; }
-
-/* Strip Section wrapper page-break styles — layout engine handles this now */
-.doc-page__content :deep([class^="Section"]) {
-  page-break-before: unset !important;
-  clear: unset !important;
-}
-
+/* ── The iframe itself ────────────────────────────────────────────────────── */
 /*
- * page-break <br> tags are either:
- *   a) consumed by splitByPageBreaks() — never reach the DOM
- *   b) inside height-paginated pages — hide so they add no visual space
+ * Width matches A4 @ 96 dpi (794 px) + room for the body shadow inside.
+ * Height is set inline via iframeHeight reactive ref so it grows to fit
+ * the document once loaded — no inner scrollbar.
+ *
+ * border:none removes the default iframe border; the "paper" shadow
+ * is applied inside the iframe via the injected body styles.
  */
-.doc-page__content :deep(br[style*="page-break"]) {
-  display: none;
+.doc-frame {
+  width: 858px;   /* 794 px content + ~32 px each side for body shadow/margin */
+  border: none;
+  display: block;
+  flex-shrink: 0;
+  transition: height 0.2s ease;
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────────── */
-@media (max-width: 860px) {
-  .doc-page, .skel-page { width: 100%; min-height: unset; }
-  .doc-page__content { padding: 24px 16px; }
-  .toc-panel { right: 8px; width: calc(100vw - 16px); top: 70px; }
-  .preview-topbar__actions { min-width: auto; }
-  .preview-topbar__title { text-align: left; }
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .doc-frame,
+  .skel-page {
+    width: 100%;
+    min-height: unset;
+  }
+
+  .preview-topbar__spacer {
+    display: none;
+  }
+
+  .preview-topbar__title {
+    text-align: left;
+  }
 }
 </style>
