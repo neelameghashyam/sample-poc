@@ -114,9 +114,8 @@ watchEffect(() => {
 
 <template>
   <div ref="editorRoot" class="editor-root">
-    <!-- Top bar: back button + header inline -->
+    <!-- Top bar: header only -->
     <div class="editor-topbar">
-      <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">Back to TG Dashboard</Button>
       <EditorHeader v-if="!store.loading && !store.error" class="editor-topbar-header" />
     </div>
 
@@ -148,7 +147,13 @@ watchEffect(() => {
     <!-- Editor -->
     <template v-else>
       <div class="editor-layout">
-        <EditorStepper />
+        <!-- Stepper column: back button + stepper stacked -->
+        <div class="editor-stepper-col">
+          <Button type="tertiary" icon-left="arrow-left" @click="backToDashboard">
+            Back to TG Dashboard
+          </Button>
+          <EditorStepper />
+        </div>
 
         <main class="editor-main">
           <h1 class="editor-chapter-title">
@@ -185,8 +190,6 @@ watchEffect(() => {
 
 .editor-topbar {
   display: flex;
-  align-items: center;
-  gap: 16px;
 }
 
 .editor-topbar-header {
@@ -207,6 +210,14 @@ watchEffect(() => {
   display: flex;
   align-items: flex-start;
   gap: 24px;
+}
+
+/* Back button + stepper stacked in the same column */
+.editor-stepper-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .editor-main {
