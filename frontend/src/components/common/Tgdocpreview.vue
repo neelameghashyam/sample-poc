@@ -4,21 +4,28 @@
  *
  * Route: /test-guidelines/:id/preview
  *
- * Renders the Java doc-gen HTML via a sandboxed iframe so the browser's
- * own layout engine handles pagination — no manual splitting, no height
- * measurement, no page-count mismatch.
+ * Renders the Java doc-gen HTML via a sandboxed iframe.
  *
- * Why iframe?
- *  • Fonts & images are fully loaded before layout is computed
- *  • Matches Word output far more closely than any JS-based split
+ * Pagination strategy — HYBRID (two passes):
  *
- * Page simulation strategy:
- *  • @page / page-break CSS only works for print — NOT for screen rendering
- *  • Instead, we convert every <br page-break-before> into a closing </div>
- *    and an opening <div class="real-page"> so the browser renders each
- *    section as a distinct A4-sized card.
+ *  Pass 1 — structural  (framedHtml computed, runs before iframe mounts)
+ *    • Replace every <br page-break-before:always> the Java API emits with
+ *      a real </div><div class="real-page"> boundary.
+ *    • This handles TOC → body splits and any other explicit breaks.
+ *
+ *  Pass 2 — overflow correction  (SPLIT_SCRIPT, runs inside iframe on load)
+ *    • After layout is complete the browser knows each .real-page's true
+ *      rendered height.
+ *    • Any page taller than MAX_PAGE_HEIGHT (1123 px = A4 @ 96 dpi) is
+ *      split by moving its overflow children into a new .real-page placed
+ *      immediately after it, repeating until the page fits.
+ *    • A single child taller than the limit is left untouched (e.g. a huge
+ *      table) — splitting mid-element would corrupt the DOM.
+ *    • After all splits the script posts the final body scrollHeight back to
+ *      the parent so the <iframe> resizes to show all pages without a
+ *      scrollbar.
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Button, Skeleton, useToast } from 'upov-ui';
 import { editorApi } from '@/services/editor-api';
@@ -35,35 +42,27 @@ const previewHtml  = ref<string | null>(null);
 const loading      = ref(false);
 const error        = ref<string | null>(null);
 const iframeRef    = ref<HTMLIFrameElement | null>(null);
-const iframeHeight = ref(1200); // px — grows after iframe load event
+const iframeHeight = ref(1200);
 
-// ── Styles injected into the iframe document ──────────────────────────────────
-//
-// Key changes vs original:
-//   • REMOVED:  body { width: 794px } — this was collapsing everything to 1 page
-//   • ADDED:    .real-page — A4-sized card, one per logical page
-//   • REMOVED:  br[style*="page-break-*"] rules — no longer needed
-//   • KEPT:     @page for print fidelity
-//
+// ── A4 @ 96 dpi ───────────────────────────────────────────────────────────────
+// 297 mm × (96 px / 25.4 mm) = 1122.5 → 1123
+const A4_HEIGHT_PX = 1123;
+// padding-top + padding-bottom inside .real-page  (56.7 × 2)
+const PAGE_PADDING_PX = 113;
+
+// ── Styles injected into the iframe <head> ────────────────────────────────────
 const INJECTED_STYLES = `
 <style id="__preview-overrides__">
-  /* ── Page geometry (print only) ────────────────────────────────── */
-  @page {
-    size: A4;
-    margin: 1.5cm;
-  }
+  @page { size: A4; margin: 1.5cm; }
 
-  /* ── Base document ─────────────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; }
 
-  html {
-    background: #f0f0f0;
-  }
+  html { background: #f0f0f0; }
 
   /*
-   * body must NOT have a fixed width here — the .real-page containers
-   * carry the A4 width individually.  A fixed body width was the root
-   * cause of everything collapsing into a single long page.
+   * body must NOT have a fixed width — each .real-page card carries it.
+   * A fixed body width was the original cause of everything collapsing
+   * into one single long page.
    */
   body {
     font-family: Arial, 'Times New Roman', sans-serif;
@@ -75,42 +74,35 @@ const INJECTED_STYLES = `
     background: #f0f0f0;
   }
 
-  /* ── A4 page card ───────────────────────────────────────────────── */
-  /*
-   * Each .real-page is one logical document page.
-   * min-height: 1123px  → A4 height @ 96 dpi  (297 mm × 3.7795 px/mm)
-   * padding: 56.7px     → 1.5 cm margin rendered on screen
-   */
+  /* ── A4 page card ────────────────────────────────────────────────── */
   .real-page {
     width: 794px;
-    min-height: 1123px;
+    min-height: ${A4_HEIGHT_PX}px;
     margin: 0 auto 32px auto;
-    padding: 56.7px;
+    padding: ${PAGE_PADDING_PX / 2}px;   /* 56.7 px each side */
     background: #fff;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
     border: 1px solid #e0e0e0;
     border-radius: 2px;
+    overflow: hidden;
 
-    /* print: each card = its own printed page */
     page-break-after: always;
     break-after: page;
   }
 
-  .real-page:last-child {
-    margin-bottom: 0;
-  }
+  .real-page:last-child { margin-bottom: 0; }
 
-  /* ── Tables ────────────────────────────────────────────────────── */
+  /* ── Tables ──────────────────────────────────────────────────────── */
   table  { border-collapse: collapse; max-width: 100%; }
   td, th { vertical-align: top; }
 
-  /* ── Images ────────────────────────────────────────────────────── */
+  /* ── Images ──────────────────────────────────────────────────────── */
   img { max-width: 100%; height: auto; }
 
-  /* ── Paragraphs — honour inline pt margin/padding from Java ────── */
+  /* ── Paragraphs ──────────────────────────────────────────────────── */
   p { margin: 0; padding: 0; }
 
-  /* ── Strip Section wrapper's own page-break declarations ───────── */
+  /* ── Strip Section-wrapper page-break declarations ───────────────── */
   [class^="Section"] {
     page-break-before: unset !important;
     clear: unset !important;
@@ -118,20 +110,104 @@ const INJECTED_STYLES = `
 </style>
 `;
 
-// ── Convert page-break markers → real page containers ────────────────────────
+// ── Pass 2: overflow-splitting script, runs inside the iframe ─────────────────
 //
-// The Java API emits:
-//   <br style="clear:both; page-break-before:always" />
+// Uses window.postMessage to send the final body height back to the Vue
+// component so the <iframe> element can resize itself without a scrollbar.
 //
-// @page / page-break CSS is print-only and does nothing on screen.
-// So we surgically replace each such <br> with a container boundary:
-//
-//   </div>              ← close the current page
-//   <div class="real-page">   ← open the next page
-//
-// The result is one .real-page div per logical page, each rendered as
-// an A4-sized white card by the CSS above.
-//
+const SPLIT_SCRIPT = `
+<script>
+(function () {
+  var MAX_HEIGHT   = ${A4_HEIGHT_PX};
+  var USABLE_HEIGHT = MAX_HEIGHT - ${PAGE_PADDING_PX}; /* subtract padding */
+
+  /* ── Split one page if it overflows ─────────────────────────────── */
+  function splitPage(page) {
+    var safety = 0;
+
+    while (page.scrollHeight > MAX_HEIGHT && safety < 200) {
+      safety++;
+
+      var children = Array.from(page.children);
+      if (children.length <= 1) break; /* single child — cannot split safely */
+
+      /*
+       * Walk children forward, accumulating their heights.
+       * The first child index that pushes us over USABLE_HEIGHT is
+       * where we cut: everything from that index onward moves to a
+       * new page inserted after the current one.
+       */
+      var cutIndex  = -1;
+      var accum     = 0;
+
+      for (var i = 0; i < children.length; i++) {
+        var h = children[i].getBoundingClientRect().height;
+
+        /* First child alone is already taller than usable area — bail */
+        if (i === 0 && h > USABLE_HEIGHT) break;
+
+        if (accum + h > USABLE_HEIGHT) {
+          cutIndex = i;
+          break;
+        }
+        accum += h;
+      }
+
+      if (cutIndex === -1) break; /* nothing to move */
+
+      /* Move overflow children to a new page */
+      var newPage = document.createElement('div');
+      newPage.className = 'real-page';
+
+      children.slice(cutIndex).forEach(function (child) {
+        newPage.appendChild(child); /* moves the node */
+      });
+
+      page.after(newPage);
+      /* While loop re-checks page.scrollHeight on next iteration */
+    }
+  }
+
+  /* ── Walk all pages (including newly created ones) ───────────────── */
+  function splitAllPages() {
+    /*
+     * querySelectorAll returns a static list — snapshot before we start
+     * so we only process "first-generation" pages.  Each splitPage call
+     * may insert new pages; those will be picked up because we re-query
+     * after each outer iteration.
+     */
+    var processed = new Set();
+    var found     = true;
+
+    while (found) {
+      found = false;
+      document.querySelectorAll('.real-page').forEach(function (page) {
+        if (!processed.has(page)) {
+          processed.add(page);
+          found = true;
+          splitPage(page);
+        }
+      });
+    }
+  }
+
+  /* ── Notify parent of final height so iframe resizes ────────────── */
+  function notifyHeight() {
+    window.parent.postMessage(
+      { type: '__previewHeight__', height: document.body.scrollHeight },
+      '*'
+    );
+  }
+
+  window.addEventListener('load', function () {
+    splitAllPages();
+    notifyHeight();
+  });
+})();
+<\/script>
+`;
+
+// ── Pass 1: replace explicit page-break <br> tags with container splits ───────
 function injectPageContainers(html: string): string {
   return html.replace(
     /<br[^>]*page-break-before\s*:\s*always[^>]*\/?>/gi,
@@ -139,33 +215,24 @@ function injectPageContainers(html: string): string {
   );
 }
 
-// ── Build the full srcdoc string fed to the iframe ────────────────────────────
-//
-// Strategy:
-//   1. Convert page-break <br> tags into real page containers
-//   2. Wrap all content in an opening <div class="real-page"> …
-//      (the closing </div> is provided by step 1 / end of content)
-//   3. If the API returned a full document → splice styles into <head>
-//   4. If the API returned a fragment     → wrap in a minimal HTML shell
-//
+// ── Build the full srcdoc string ──────────────────────────────────────────────
 const framedHtml = computed<string>(() => {
   if (!previewHtml.value) return '';
 
   const html = previewHtml.value;
 
-  // Full document — splice our overrides just before </head>
+  // Full document (has </head>) → splice styles and wrap body
   if (/<\/head>/i.test(html)) {
     const withStyles = html.replace(/<\/head>/i, `${INJECTED_STYLES}</head>`);
 
-    // Wrap body content in real-page containers
     return withStyles.replace(
       /(<body[^>]*>)([\s\S]*)(<\/body>)/i,
-      (_match, openTag, bodyContent, closeTag) =>
-        `${openTag}<div class="real-page">${injectPageContainers(bodyContent)}</div>${closeTag}`
+      (_m, open, content, close) =>
+        `${open}<div class="real-page">${injectPageContainers(content)}</div>${SPLIT_SCRIPT}${close}`
     );
   }
 
-  // Fragment — build a minimal wrapper, content already in first page div
+  // Fragment → build a minimal shell
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -177,32 +244,33 @@ const framedHtml = computed<string>(() => {
   <div class="real-page">
     ${injectPageContainers(html)}
   </div>
+  ${SPLIT_SCRIPT}
 </body>
 </html>`;
 });
 
-// ── Auto-resize iframe to its content height ──────────────────────────────────
-//
-// Called on the iframe's load event.  We read scrollHeight from the iframe's
-// document body and update our reactive height — this avoids a fixed-height
-// clip while also avoiding a scrollbar inside the frame.
-//
-function onIframeLoad() {
-  const frame = iframeRef.value;
-  if (!frame) return;
-
-  try {
-    const body = frame.contentDocument?.body;
-    if (body) {
-      // Add a small bottom buffer so the last page's shadow is fully visible
-      iframeHeight.value = body.scrollHeight + 64;
-    }
-  } catch {
-    // Cross-origin guard — shouldn't happen with srcdoc but be safe
+// ── Receive final height from SPLIT_SCRIPT via postMessage ────────────────────
+function handleMessage(event: MessageEvent) {
+  if (event.data?.type === '__previewHeight__') {
+    iframeHeight.value = (event.data.height as number) + 64;
   }
 }
 
-// ── Load preview ──────────────────────────────────────────────────────────────
+// ── Fallback: initial height measurement on iframe load ───────────────────────
+// Fires before SPLIT_SCRIPT finishes; prevents the frame from being clipped
+// while the script is running.  postMessage will refine it afterward.
+function onIframeLoad() {
+  const frame = iframeRef.value;
+  if (!frame) return;
+  try {
+    const body = frame.contentDocument?.body;
+    if (body) iframeHeight.value = body.scrollHeight + 64;
+  } catch {
+    // cross-origin guard — safe with srcdoc
+  }
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
 async function loadPreview() {
   if (!tgId.value) return;
 
@@ -225,12 +293,19 @@ async function loadPreview() {
   }
 }
 
-onMounted(loadPreview);
-
 // ── Navigation ────────────────────────────────────────────────────────────────
 function backToDashboard() {
   router.push({ name: 'admin-test-guidelines' });
 }
+
+onMounted(() => {
+  window.addEventListener('message', handleMessage);
+  loadPreview();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('message', handleMessage);
+});
 </script>
 
 <template>
@@ -276,15 +351,9 @@ function backToDashboard() {
     </div>
 
     <!--
-      ── iframe document viewer ─────────────────────────────────────────────
-      The browser's own layout engine renders the full document.
-      Page breaks are simulated via .real-page container divs — NOT CSS
-      @page rules (which are print-only and have no screen effect).
-
-      • srcdoc feeds the full HTML + injected styles
-      • @load auto-sizes the frame to content height (no inner scroll bar)
-      • sandbox="allow-same-origin" lets us read scrollHeight; scripts are
-        intentionally excluded (doc content needs no JS)
+      sandbox must include BOTH flags:
+        allow-same-origin → DOM access for SPLIT_SCRIPT
+        allow-scripts     → script execution
     -->
     <div v-else-if="framedHtml" class="doc-viewer">
       <iframe
@@ -292,7 +361,7 @@ function backToDashboard() {
         class="doc-frame"
         :srcdoc="framedHtml"
         :style="{ height: iframeHeight + 'px' }"
-        sandbox="allow-same-origin"
+        sandbox="allow-same-origin allow-scripts"
         title="Document preview"
         @load="onIframeLoad"
       />
@@ -307,11 +376,9 @@ function backToDashboard() {
 </template>
 
 <style scoped>
-/* ── Reset ─────────────────────────────────────────────────────────────────── */
 .preview-root *, .preview-root *::before, .preview-root *::after { box-sizing: border-box; }
 .preview-root h1, .preview-root h2, .preview-root h3, .preview-root p { margin: 0; padding: 0; }
 
-/* ── Root shell ────────────────────────────────────────────────────────────── */
 .preview-root {
   font-family: 'Figtree', sans-serif;
   min-height: 100%;
@@ -343,7 +410,7 @@ function backToDashboard() {
   width: 170px;
 }
 
-/* ── Loading skeleton — two A4 outlines ────────────────────────────────────── */
+/* ── Loading skeleton ──────────────────────────────────────────────────────── */
 .skel {
   display: flex;
   flex-direction: column;
@@ -380,27 +447,20 @@ function backToDashboard() {
   text-align: center;
 }
 
-/* ── Grey canvas wrapping the iframe ──────────────────────────────────────── */
+/* ── Grey canvas ───────────────────────────────────────────────────────────── */
 .doc-viewer {
   background: #f0f0f0;
   padding: 32px 24px;
   border-radius: 8px;
   flex: 1;
-
-  /* Centre the iframe; let it overflow horizontally on small screens */
   overflow-x: auto;
   display: flex;
   justify-content: center;
 }
 
-/* ── The iframe itself ────────────────────────────────────────────────────── */
-/*
- * Width is slightly wider than 794 px to give room for the per-page
- * box-shadow rendered inside the iframe (32 px each side).
- * Height is set inline via iframeHeight so it grows to fit all pages.
- */
+/* ── iframe ────────────────────────────────────────────────────────────────── */
 .doc-frame {
-  width: 858px;   /* 794 px content + ~32 px each side for box-shadow/margin */
+  width: 858px;   /* 794 px + ~32 px each side for box-shadow clearance */
   border: none;
   display: block;
   flex-shrink: 0;
@@ -415,12 +475,7 @@ function backToDashboard() {
     min-height: unset;
   }
 
-  .preview-topbar__spacer {
-    display: none;
-  }
-
-  .preview-topbar__title {
-    text-align: left;
-  }
+  .preview-topbar__spacer { display: none; }
+  .preview-topbar__title  { text-align: left; }
 }
 </style>
