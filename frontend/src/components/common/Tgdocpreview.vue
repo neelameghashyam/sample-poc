@@ -4,11 +4,9 @@
  *
  * Route: /test-guidelines/:id/preview
  *
- * Full-page document preview for a test guideline, loaded via:
- *   FE → Node BE (/api/test-guidelines/:id/doc-gen-preview?lang=en)
- *      → Java API  (http://<JAVA_API_BASE>/doc-gen-preview/:id?lang=en)
- *
- * The user lands here by clicking a row in TestGuidelinesTable.
+ * Renders the Java doc-gen HTML as real A4 pages.
+ * The API returns <div class="SectionN"> elements — each one is a page.
+ * We split on those and render each inside its own .doc-page container.
  */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -27,13 +25,27 @@ const previewHtml  = ref<string | null>(null);
 const loading      = ref(false);
 const error        = ref<string | null>(null);
 
-// ── Split HTML into A4 pages on page-break markers ───────────────────────────
+// ── Extract body content from full XHTML document ────────────────────────────
+function extractBody(html: string): string {
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  return bodyMatch ? bodyMatch[1] : html;
+}
+
+// ── Split into pages on <div class="SectionN"> boundaries ────────────────────
+// The Java API wraps each page in <div class="Section0">, <div class="Section1">, etc.
 const pages = computed(() => {
   if (!previewHtml.value) return [];
-  return previewHtml.value
-    .split(/<br[^>]*page-break-before[^>]*>/gi)
+
+  const body = extractBody(previewHtml.value);
+
+  // Split just before each SectionN div so every chunk starts with its own div
+  const parts = body
+    .split(/(?=<div\s+class="Section\d+")/)
     .map(p => p.trim())
     .filter(p => p.length > 0);
+
+  // Fallback: if no sections found, render as single page
+  return parts.length > 0 ? parts : [body];
 });
 
 // ── Load preview ──────────────────────────────────────────────────────────────
@@ -81,19 +93,23 @@ function backToDashboard() {
 
     <!-- Loading skeleton -->
     <div v-if="loading" class="skel">
-      <div class="skel-header">
-        <Skeleton width="35%" height="20px" />
-        <Skeleton width="55%" height="14px" />
-        <Skeleton width="45%" height="14px" />
-      </div>
-      <div class="skel-body">
+      <div class="skel-page">
+        <Skeleton width="40%" height="22px" />
+        <Skeleton width="60%" height="14px" />
         <Skeleton width="100%" height="14px" />
         <Skeleton width="100%" height="14px" />
         <Skeleton width="80%"  height="14px" />
         <Skeleton width="100%" height="14px" />
-        <Skeleton width="60%"  height="14px" />
+        <Skeleton width="55%"  height="14px" />
+      </div>
+      <div class="skel-page">
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="70%"  height="14px" />
         <Skeleton width="100%" height="14px" />
         <Skeleton width="90%"  height="14px" />
+        <Skeleton width="100%" height="14px" />
+        <Skeleton width="50%"  height="14px" />
       </div>
     </div>
 
@@ -105,7 +121,7 @@ function backToDashboard() {
       </Button>
     </div>
 
-    <!-- A4 paginated document viewer -->
+    <!-- A4 paginated document viewer — one .doc-page per SectionN div -->
     <div v-else-if="pages.length" class="doc-viewer">
       <div
         v-for="(page, index) in pages"
@@ -143,6 +159,7 @@ function backToDashboard() {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
 }
 
 .preview-topbar__title {
@@ -159,29 +176,29 @@ function backToDashboard() {
   width: 170px;
 }
 
-/* ── Loading skeleton ─────────────────────────────────────────────────────── */
+/* ── Loading skeleton — looks like 2 A4 pages loading ────────────────────── */
 .skel {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  align-items: center;
+  background: #f0f0f0;
+  padding: 32px 24px;
+  border-radius: 8px;
+  gap: 32px;
+  flex: 1;
 }
 
-.skel-header {
-  background: var(--color-neutral-0, #fff);
-  border-radius: 8px;
-  padding: 24px 28px;
+.skel-page {
+  width: 794px;
+  min-height: 400px;
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 2px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+  padding: 48px 56px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.skel-body {
-  background: var(--color-neutral-0, #fff);
-  border-radius: 8px;
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 /* ── Error / empty state ──────────────────────────────────────────────────── */
@@ -196,7 +213,7 @@ function backToDashboard() {
   text-align: center;
 }
 
-/* ── Document viewer — grey canvas holding all pages ─────────────────────── */
+/* ── Grey canvas that holds all A4 pages ─────────────────────────────────── */
 .doc-viewer {
   display: flex;
   flex-direction: column;
@@ -204,90 +221,80 @@ function backToDashboard() {
   background: #f0f0f0;
   padding: 32px 24px;
   border-radius: 8px;
-  gap: 32px;
+  gap: 32px;       /* visible gap between pages */
   flex: 1;
 }
 
 /* ── Single A4 page ───────────────────────────────────────────────────────── */
+/*
+ * A4 at 96 dpi = 794 × 1123 px
+ * The Java API uses pt units internally (595.3pt × 841.9pt)
+ * We set font-size:10pt as baseline so pt values in inline styles scale correctly.
+ * overflow: hidden keeps content inside the page boundary.
+ */
 .doc-page {
-  width: 794px;           /* A4 at 96 dpi */
-  min-height: 1123px;     /* A4 at 96 dpi */
+  width: 794px;
+  min-height: 1123px;
   background: #ffffff;
-  padding: 72px 80px;     /* ~2.54 cm margins */
+  padding: 56.7px;        /* 1.5cm ≈ 56.7px at 96dpi — matches Word default */
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e2e2e2;
+  border: 1px solid #e0e0e0;
   border-radius: 2px;
 
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 15px;
-  line-height: 1.75;
-  color: #1f2937;
+  /* Base font matches the Java-generated content */
+  font-family: Arial, 'Times New Roman', sans-serif;
+  font-size: 10pt;
+  line-height: 1.5;
+  color: #000;
 
+  overflow: hidden;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
-/* ── Styles applied to the injected HTML content ─────────────────────────── */
-.doc-page :deep(h1),
-.doc-page :deep(h2),
-.doc-page :deep(h3),
-.doc-page :deep(h4) {
-  font-family: 'Figtree', sans-serif;
-  font-weight: 600;
-  color: var(--color-primary-green-dark, #1c4240);
-  margin: 1.4em 0 0.5em;
-  line-height: 1.3;
-}
+/* ── Deep styles for injected HTML ───────────────────────────────────────── */
 
-.doc-page :deep(p) {
-  margin: 0.75em 0;
-}
-
+/* Tables */
 .doc-page :deep(table) {
-  width: 100%;
   border-collapse: collapse;
-  margin: 1.25em 0;
-  font-size: 14px;
+  max-width: 100%;
 }
 
-.doc-page :deep(th),
-.doc-page :deep(td) {
-  border: 1px solid #d1d5db;
-  padding: 8px 12px;
-  text-align: left;
+.doc-page :deep(td),
+.doc-page :deep(th) {
   vertical-align: top;
 }
 
-.doc-page :deep(th) {
-  background: #f9fafb;
-  font-family: 'Figtree', sans-serif;
-  font-weight: 600;
-}
-
-.doc-page :deep(ul),
-.doc-page :deep(ol) {
-  padding-left: 1.5em;
-  margin: 0.75em 0;
-}
-
+/* Images */
 .doc-page :deep(img) {
   max-width: 100%;
   height: auto;
 }
 
-/* Respect any leftover inline page-break hints from the API */
-.doc-page :deep(br[style*="page-break-before"]) {
-  display: block;
-  page-break-before: always;
-  break-before: page;
+/* Paragraphs — preserve inline margin/padding from Java styles */
+.doc-page :deep(p) {
+  margin: 0;
+  padding: 0;
+}
+
+/* Strip the SectionN page-break style — we handle it via .doc-page container */
+.doc-page :deep([class^="Section"]) {
+  page-break-before: unset !important;
+  clear: unset !important;
+}
+
+/* Respect any remaining br page-break hints */
+.doc-page :deep(br[style*="page-break-before:always"]) {
+  display: none; /* already split into separate pages */
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
-  .doc-page {
+  .doc-page,
+  .skel-page {
     width: 100%;
     min-height: unset;
-    padding: 32px 24px;
+    padding: 24px 16px;
   }
 
   .preview-topbar__spacer {
