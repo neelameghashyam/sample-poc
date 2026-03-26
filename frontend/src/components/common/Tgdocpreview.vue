@@ -9,10 +9,14 @@
  * measurement, no page-count mismatch.
  *
  * Why iframe?
- *  • @page / page-break CSS is honoured by the browser natively
- *  • pt units resolve correctly inside the iframe's own document context
  *  • Fonts & images are fully loaded before layout is computed
  *  • Matches Word output far more closely than any JS-based split
+ *
+ * Page simulation strategy:
+ *  • @page / page-break CSS only works for print — NOT for screen rendering
+ *  • Instead, we convert every <br page-break-before> into a closing </div>
+ *    and an opening <div class="real-page"> so the browser renders each
+ *    section as a distinct A4-sized card.
  */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -35,15 +39,15 @@ const iframeHeight = ref(1200); // px — grows after iframe load event
 
 // ── Styles injected into the iframe document ──────────────────────────────────
 //
-// These are appended to whatever <head> the Java API returns (or prepended if
-// the response is a fragment).  They set up:
-//   • @page  — A4 size + margins (used by browser print engine)
-//   • body   — 794 px wide (A4 @ 96 dpi), correct base font
-//   • visual page-break dividers rendered on screen via ::before pseudo
+// Key changes vs original:
+//   • REMOVED:  body { width: 794px } — this was collapsing everything to 1 page
+//   • ADDED:    .real-page — A4-sized card, one per logical page
+//   • REMOVED:  br[style*="page-break-*"] rules — no longer needed
+//   • KEPT:     @page for print fidelity
 //
 const INJECTED_STYLES = `
 <style id="__preview-overrides__">
-  /* ── Page geometry ─────────────────────────────────────────────── */
+  /* ── Page geometry (print only) ────────────────────────────────── */
   @page {
     size: A4;
     margin: 1.5cm;
@@ -56,20 +60,44 @@ const INJECTED_STYLES = `
     background: #f0f0f0;
   }
 
+  /*
+   * body must NOT have a fixed width here — the .real-page containers
+   * carry the A4 width individually.  A fixed body width was the root
+   * cause of everything collapsing into a single long page.
+   */
   body {
     font-family: Arial, 'Times New Roman', sans-serif;
     font-size: 10pt;
     line-height: 1.5;
     color: #000;
+    margin: 0;
+    padding: 32px 24px;
+    background: #f0f0f0;
+  }
 
-    /* A4 @ 96 dpi with 1.5 cm margins (≈ 56.7 px each side) */
+  /* ── A4 page card ───────────────────────────────────────────────── */
+  /*
+   * Each .real-page is one logical document page.
+   * min-height: 1123px  → A4 height @ 96 dpi  (297 mm × 3.7795 px/mm)
+   * padding: 56.7px     → 1.5 cm margin rendered on screen
+   */
+  .real-page {
     width: 794px;
-    margin: 32px auto;
+    min-height: 1123px;
+    margin: 0 auto 32px auto;
     padding: 56.7px;
     background: #fff;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
     border: 1px solid #e0e0e0;
     border-radius: 2px;
+
+    /* print: each card = its own printed page */
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .real-page:last-child {
+    margin-bottom: 0;
   }
 
   /* ── Tables ────────────────────────────────────────────────────── */
@@ -82,39 +110,6 @@ const INJECTED_STYLES = `
   /* ── Paragraphs — honour inline pt margin/padding from Java ────── */
   p { margin: 0; padding: 0; }
 
-  /* ── Page-break markers → visible dividers on screen ───────────── */
-  /*
-   * The Java API emits:
-   *   <br style="clear:both; page-break-before:always" />
-   * We render those as visual horizontal rules so the user can see
-   * where each page starts, without any JS splitting.
-   */
-  br[style*="page-break-before"],
-  br[style*="page-break-after"] {
-    display: block;
-    height: 0;
-    margin: 32px -56.7px;        /* bleed to body edges */
-    border: none;
-    border-top: 2px dashed #d0d0d0;
-    position: relative;
-  }
-
-  br[style*="page-break-before"]::after,
-  br[style*="page-break-after"]::after {
-    content: 'page break';
-    position: absolute;
-    top: -9px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #f0f0f0;
-    color: #aaa;
-    font-size: 9px;
-    font-family: Arial, sans-serif;
-    padding: 0 8px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
   /* ── Strip Section wrapper's own page-break declarations ───────── */
   [class^="Section"] {
     page-break-before: unset !important;
@@ -123,11 +118,35 @@ const INJECTED_STYLES = `
 </style>
 `;
 
+// ── Convert page-break markers → real page containers ────────────────────────
+//
+// The Java API emits:
+//   <br style="clear:both; page-break-before:always" />
+//
+// @page / page-break CSS is print-only and does nothing on screen.
+// So we surgically replace each such <br> with a container boundary:
+//
+//   </div>              ← close the current page
+//   <div class="real-page">   ← open the next page
+//
+// The result is one .real-page div per logical page, each rendered as
+// an A4-sized white card by the CSS above.
+//
+function injectPageContainers(html: string): string {
+  return html.replace(
+    /<br[^>]*page-break-before\s*:\s*always[^>]*\/?>/gi,
+    '</div><div class="real-page">'
+  );
+}
+
 // ── Build the full srcdoc string fed to the iframe ────────────────────────────
 //
 // Strategy:
-//   1. If the API returned a full XHTML/HTML document → inject styles into <head>
-//   2. If the API returned a fragment               → wrap in a minimal HTML shell
+//   1. Convert page-break <br> tags into real page containers
+//   2. Wrap all content in an opening <div class="real-page"> …
+//      (the closing </div> is provided by step 1 / end of content)
+//   3. If the API returned a full document → splice styles into <head>
+//   4. If the API returned a fragment     → wrap in a minimal HTML shell
 //
 const framedHtml = computed<string>(() => {
   if (!previewHtml.value) return '';
@@ -136,10 +155,17 @@ const framedHtml = computed<string>(() => {
 
   // Full document — splice our overrides just before </head>
   if (/<\/head>/i.test(html)) {
-    return html.replace(/<\/head>/i, `${INJECTED_STYLES}</head>`);
+    const withStyles = html.replace(/<\/head>/i, `${INJECTED_STYLES}</head>`);
+
+    // Wrap body content in real-page containers
+    return withStyles.replace(
+      /(<body[^>]*>)([\s\S]*)(<\/body>)/i,
+      (_match, openTag, bodyContent, closeTag) =>
+        `${openTag}<div class="real-page">${injectPageContainers(bodyContent)}</div>${closeTag}`
+    );
   }
 
-  // Fragment — build a minimal wrapper
+  // Fragment — build a minimal wrapper, content already in first page div
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -147,7 +173,11 @@ const framedHtml = computed<string>(() => {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   ${INJECTED_STYLES}
 </head>
-<body>${html}</body>
+<body>
+  <div class="real-page">
+    ${injectPageContainers(html)}
+  </div>
+</body>
 </html>`;
 });
 
@@ -176,9 +206,9 @@ function onIframeLoad() {
 async function loadPreview() {
   if (!tgId.value) return;
 
-  loading.value     = true;
-  error.value       = null;
-  previewHtml.value = null;
+  loading.value      = true;
+  error.value        = null;
+  previewHtml.value  = null;
   iframeHeight.value = 1200;
 
   try {
@@ -248,7 +278,8 @@ function backToDashboard() {
     <!--
       ── iframe document viewer ─────────────────────────────────────────────
       The browser's own layout engine renders the full document.
-      No JS splitting, no height measurement — just real CSS pagination.
+      Page breaks are simulated via .real-page container divs — NOT CSS
+      @page rules (which are print-only and have no screen effect).
 
       • srcdoc feeds the full HTML + injected styles
       • @load auto-sizes the frame to content height (no inner scroll bar)
@@ -364,15 +395,12 @@ function backToDashboard() {
 
 /* ── The iframe itself ────────────────────────────────────────────────────── */
 /*
- * Width matches A4 @ 96 dpi (794 px) + room for the body shadow inside.
- * Height is set inline via iframeHeight reactive ref so it grows to fit
- * the document once loaded — no inner scrollbar.
- *
- * border:none removes the default iframe border; the "paper" shadow
- * is applied inside the iframe via the injected body styles.
+ * Width is slightly wider than 794 px to give room for the per-page
+ * box-shadow rendered inside the iframe (32 px each side).
+ * Height is set inline via iframeHeight so it grows to fit all pages.
  */
 .doc-frame {
-  width: 858px;   /* 794 px content + ~32 px each side for body shadow/margin */
+  width: 858px;   /* 794 px content + ~32 px each side for box-shadow/margin */
   border: none;
   display: block;
   flex-shrink: 0;
