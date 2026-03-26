@@ -16,9 +16,9 @@ const error = ref<string | null>(null);
 const iframeRef = ref<HTMLIFrameElement | null>(null);
 const iframeHeight = ref(1200);
 
-/* ------------------ PAGE SPLIT SCRIPT ------------------ */
+/* ------------------ PAGINATION SCRIPT (ESCAPED) ------------------ */
 const PAGINATION_SCRIPT = `
-<script>
+<scr` + `ipt>
 window.addEventListener('load', () => {
   const PAGE_HEIGHT = 1123;
 
@@ -48,7 +48,7 @@ window.addEventListener('load', () => {
   const pages = document.querySelectorAll('.real-page');
   pages.forEach(splitPage);
 });
-</script>
+</scr` + `ipt>
 `;
 
 /* ------------------ STYLES ------------------ */
@@ -88,7 +88,7 @@ td, th { vertical-align: top; }
 /* images */
 img { max-width: 100%; height: auto; }
 
-/* remove section breaks */
+/* remove section page breaks */
 [class^="Section"] {
   page-break-before: unset !important;
   clear: unset !important;
@@ -104,7 +104,7 @@ function transformHtml(html: string) {
   );
 }
 
-/* ------------------ BUILD FINAL HTML ------------------ */
+/* ------------------ FINAL HTML ------------------ */
 const framedHtml = computed(() => {
   if (!previewHtml.value) return '';
 
@@ -144,6 +144,7 @@ async function loadPreview() {
 
 onMounted(loadPreview);
 
+/* ------------------ RESIZE IFRAME ------------------ */
 function onIframeLoad() {
   const body = iframeRef.value?.contentDocument?.body;
   if (body) {
