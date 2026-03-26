@@ -36,52 +36,54 @@ function onExampleVarietyToggle(val: 'left' | 'right') {
   >
     <template #edit>
       <Card elevation="low">
-        <!-- Legend section -->
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
-            <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">6.1 Characteristics legend</h2>
-            <ToggleSwitch
-              :model-value="data.isCharacteristicsLegend === 'Y' ? 'right' : 'left'"
-              left-label="Disabled"
-              right-label="Enabled"
-              @update:model-value="onLegendToggle"
-            />
-          </div>
-          <p style="font-size: 14px; font-weight: 400; color: #606060; line-height: 20px">
-            Enable to add a legend explaining symbols and abbreviations used in the table of characteristics.
-          </p>
-          <template v-if="data.isCharacteristicsLegend === 'Y'">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+
+          <!-- Legend section -->
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px;">6.1 Characteristics legend</h2>
+              <ToggleSwitch
+                :model-value="data.isCharacteristicsLegend === 'Y' ? 'right' : 'left'"
+                left-label="Disabled"
+                right-label="Enabled"
+                @update:model-value="onLegendToggle"
+              />
+            </div>
+            <p style="font-size: 14px; font-weight: 400; color: #606060; line-height: 20px;">
+              Enable to add a legend explaining symbols and abbreviations used in the table of characteristics.
+            </p>
             <Editor
+              v-if="data.isCharacteristicsLegend === 'Y'"
               :model-value="data.CharacteristicLegend || ''"
               :api-key="apiKey"
               :init="init"
               @update:model-value="onFieldChange('CharacteristicLegend', $event)"
             />
-          </template>
-        </div>
-
-        <!-- Example variety text section -->
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
-            <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px">6.2 Example variety text</h2>
-            <ToggleSwitch
-              :model-value="data.isExampleVarietyText === 'Y' ? 'right' : 'left'"
-              left-label="Disabled"
-              right-label="Enabled"
-              @update:model-value="onExampleVarietyToggle"
-            />
           </div>
-          <p style="font-size: 14px; font-weight: 400; color: #606060; line-height: 20px">
-            Enable to add text explaining the example varieties used in the table of characteristics.
-          </p>
-          <template v-if="data.isExampleVarietyText === 'Y'">
+
+          <!-- Example variety text section -->
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <h2 style="font-size: 18px; font-weight: 700; color: var(--color-neutral-800); line-height: 22px;">6.2 Example variety text</h2>
+              <ToggleSwitch
+                :model-value="data.isExampleVarietyText === 'Y' ? 'right' : 'left'"
+                left-label="Disabled"
+                right-label="Enabled"
+                @update:model-value="onExampleVarietyToggle"
+              />
+            </div>
+            <p style="font-size: 14px; font-weight: 400; color: #606060; line-height: 20px;">
+              Enable to add text explaining the example varieties used in the table of characteristics.
+            </p>
             <Editor
+              v-if="data.isExampleVarietyText === 'Y'"
               :model-value="data.ExampleVarietyText || ''"
               :api-key="apiKey"
               :init="init"
               @update:model-value="onFieldChange('ExampleVarietyText', $event)"
             />
-          </template>
+          </div>
+
         </div>
       </Card>
     </template>
