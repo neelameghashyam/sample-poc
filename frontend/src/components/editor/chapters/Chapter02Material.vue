@@ -23,7 +23,7 @@ const isMushroomVariety = computed(() => store.tgFlags?.isMushroom ?? false);
 
 const seedOptions = [
   {
-    group: '2.4.1',
+    group: '',
     groupLabel: 'Test Guidelines which only apply to seed-propagated varieties:',
     options: [
       {
@@ -39,7 +39,7 @@ const seedOptions = [
     ]
   },
   {
-    group: '2.4.2',
+    group: '',
     groupLabel: 'Test Guidelines which apply to seed-propagated varieties as well as other types of varieties:',
     options: [
       {
@@ -76,7 +76,11 @@ function onSeedSelect(opt: { value: string; text: string }) {
       <div style="display: flex; flex-direction: column; gap: 12px">
 
         <!-- 2.2 The material is to be supplied in the form of -->
-        <SectionAccordion number="2.2" title="The material is to be supplied in the form of:">
+       <SectionAccordion number="2.2">
+  <template #title>
+    The material is to be supplied in the form of
+    <span style="color: #D32F2F; margin-left: 1px">*</span>
+  </template>
           <div style="display: flex; flex-direction: column; gap: 8px">
             <p style="font-size: 14px; font-weight: 400; color: var(--color-neutral-800); line-height: 20px; margin: 0">
               The material is to be supplied in the form of
